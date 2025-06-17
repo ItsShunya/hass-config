@@ -1,0 +1,14 @@
+# HASS internals.
+backups
+.cloud
+.storage
+deps
+tts
+blueprints
+
+# Logs and databases.
+*.log*
+*.db*
+# Keys & tokens.
+secrets_template.yaml
+secrets.yaml
