@@ -10,8 +10,27 @@ lovelace:
   mode: yaml
   resources:
     - url: /hacsfiles/lovelace-xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js  
-      type: module 
-      
+      type: module
+  dashboards:
+    lovelace-general:
+      mode: yaml
+      filename: dashboards/general/dashboard.yaml
+      title: General
+      icon: mdi:floor-plan
+      show_in_sidebar: true
+    lovelace-map:
+      mode: yaml
+      filename: dashboards/map/dashboard.yaml
+      title: Map
+      icon: mdi:map
+      show_in_sidebar: true
+    lovelace-clean:
+      mode: yaml
+      filename: dashboards/clean/dashboard.yaml
+      title: Clean
+      icon: mdi:broom
+      show_in_sidebar: true
+
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
