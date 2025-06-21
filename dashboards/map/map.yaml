@@ -1,7 +1,7 @@
-  - title: Map
-    icon: mdi:map
-    type: panel
-    cards:
-      - type: map
-        auto_fit: true
-        show_all: true
+title: Map
+icon: mdi:map
+type: panel
+cards:
+  - type: map
+    auto_fit: true
+    show_all: true

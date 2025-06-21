@@ -1,3 +1,3 @@
 title: General
 views:
-  - !include /overview.yaml
+  - !include /config/dashboards/general/overview.yaml

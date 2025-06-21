@@ -1,3 +1,3 @@
 title: Cleaning
 views:
-  - !include /vacuum_map.yaml
+  - !include /config/dashboards/clean/vacuum_map.yaml
