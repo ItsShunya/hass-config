@@ -8,8 +8,8 @@ views:
         heading: Overview
 
   - title: Map
-    type: panel
     icon: mdi:map
+    type: panel
     cards:
       - type: map
         auto_fit: true
