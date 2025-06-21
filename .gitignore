@@ -9,6 +9,7 @@ blueprints
 # Logs and databases.
 *.log*
 *.db*
+
 # Keys & tokens.
 secrets_template.yaml
 secrets.yaml
