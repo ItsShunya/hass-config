@@ -1,3 +1,3 @@
 title: Map
 views:
-  - !include /config/dashboards/map/map.yaml
+  - !include /config/dashboards/map/views/map.yaml
