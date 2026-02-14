@@ -1,3 +1,10 @@
 title: Map
 views:
-  - !include dashboards/map/views/map.yaml
+  - type: panel
+    icon: mdi:map
+    cards:
+      - type: map
+        aspect_ratio: 16:9
+        default_zoom: 8
+        auto_fit: true
+        show_all: true
