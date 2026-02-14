@@ -1,5 +1,8 @@
 title: Overview
 icon: 'mdi:floor-plan'
-cards:
-  - type: heading
-    heading: Overview
+type: sections
+sections:
+  - type: grid
+    cards:
+      - type: heading
+        heading: Overview

@@ -20,7 +20,6 @@ The repository is structured following the usual Home Assistant installation to 
 - **`configuration.yaml`**: The main configuration file where you define integrations, settings, and core options.
 - **`scenes.yaml`**: .
 - **`scripts.yaml`**: Defines reusable sequences of actions that can be triggered manually or by automations.
-- **`ui-lovelace.yaml`**: The main entrypoint for Lovelace UI.
 - **`dashboards/`**: Contains individual dashboard files.
   - Each subdirectory contains a set of YAML files defining different views or layouts.
 - **`secrets.yaml`**: Stores sensitive information (like passwords and API keys) referenced elsewhere in the configuration.
