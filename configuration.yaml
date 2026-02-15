@@ -9,7 +9,7 @@ frontend:
 lovelace:
   resource_mode: yaml
   resources:
-    - url: /hacsfiles/lovelace-xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js
+    - url: /local/community/lovelace-xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js
       type: module
   dashboards:
     lovelace-general:
