@@ -5,10 +5,10 @@ sections:
   - type: grid
     cards:
       - type: custom:xiaomi-vacuum-map-card
-        vacuum_platform: Xiaomi Miio
-        entity: vacuum.dreamebot_d10_plus
+        vacuum_platform: al-one/hass-xiaomi-miot
+        entity: vacuum.dreame_r2205_ad79_robot_cleaner
         map_source:
-          camera: camera.dreamebot_d10_plus_map
+          camera: camera.dreamebot_d10_plus_live_map
         calibration_source:
           camera: true
         map_modes:
@@ -123,3 +123,8 @@ sections:
                 entity_id: '[[entity_id]]'
                 points: '[[selection]]'
                 repeats: '[[repeats]]'
+        grid_options:
+          rows: 8
+          columns: full
+        two_finger_pan: false
+        map_locked: false
