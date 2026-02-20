@@ -29,7 +29,19 @@ The repository is structured following the usual Home Assistant installation to 
 
 ## Initial Setup
 
-To do.
+Set up a docker container using the provided Home Assistant image. For NixOS you can see the config needed [here](https://github.com/ItsShunya/nixfiles/commit/445cf735f5bdf5c721743100190c408d5db6bb01).
+
+This repository contains the Home Assistant config, so simply clone it and copy its contents inside the image where you got Home Assistant running:
+
+```
+$ docker cp ~/<your_cloned_repo>/. <container_id>:/config/
+```
+
+In case you want to modify something inside the container, you can enter it with a shell open with:
+
+```
+docker exec -it homeassistant bash
+```
 
 ---
 
