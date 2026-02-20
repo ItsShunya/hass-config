@@ -11,8 +11,59 @@ sections:
           camera: camera.dreamebot_d10_plus_live_map
         calibration_source:
           camera: true
+        icons:
+          - icon: mdi:play
+            tooltip: Start
+            tap_action:
+              action: call-service
+              service: vacuum.start
+              service_data:
+                entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+            conditions:
+              - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+                value: docked
+          - icon: mdi:stop
+            tooltip: Stop
+            tap_action:
+              action: call-service
+              service: vacuum.stop
+              service_data:
+                entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+            conditions:
+              - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+                value_not: docked
+              - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+                value_not: idle
+              - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+                value_not: error
+              - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+                value_not: paused
+          - icon: mdi:home-map-marker
+            tooltip: Return to base
+            tap_action:
+              action: call-service
+              service: vacuum.return_to_base
+              service_data:
+                entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+            conditions:
+              - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+                value_not: docked
+              - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+                value_not: returning
+          - icon: mdi:map-marker
+            tooltip: Locate
+            tap_action:
+              action: call-service
+              service: vacuum.locate
+              service_data:
+                entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
         map_modes:
-          - template: vacuum_clean_zone
+          - name: Zone cleanup
+            icon: mdi:select-drag
+            run_immediately: false
+            coordinates_rounding: true
+            coordinates_to_meters_divider: 1000
+            selection_type: MANUAL_RECTANGLE
             max_selections: 10
             repeats_type: EXTERNAL
             max_repeats: 3
@@ -22,7 +73,15 @@ sections:
                 entity_id: '[[entity_id]]'
                 zone: '[[selection]]'
                 repeats: '[[repeats]]'
-          - template: vacuum_clean_segment
+            predefined_selections: []
+            variables: {}
+          - name: Rooms
+            icon: mdi:floor-plan
+            run_immediately: false
+            coordinates_rounding: true
+            coordinates_to_meters_divider: 1000
+            selection_type: ROOM
+            max_selections: 1
             repeats_type: EXTERNAL
             max_repeats: 3
             service_call_schema:
@@ -112,19 +171,53 @@ sections:
                     - 5000
                   - - -6700
                     - 650
+            variables: {}
           - name: Clean Spot
             icon: mdi:map-marker-plus
-            max_repeats: 3
+            run_immediately: false
+            coordinates_rounding: true
+            coordinates_to_meters_divider: 1000
             selection_type: MANUAL_POINT
+            max_selections: 999
             repeats_type: EXTERNAL
+            max_repeats: 3
             service_call_schema:
               service: dreame_vacuum.vacuum_clean_spot
               service_data:
                 entity_id: '[[entity_id]]'
                 points: '[[selection]]'
                 repeats: '[[repeats]]'
+            predefined_selections: []
+            variables: {}
         grid_options:
           rows: 8
           columns: full
-        two_finger_pan: false
-        map_locked: false
+        two_finger_pan: true
+        map_locked: true
+        title: Dreame Vacuum Map
+        additional_presets: []
+        tiles: []
+    column_span: 1
+badges:
+  - type: entity
+    show_name: false
+    show_state: true
+    show_icon: true
+    entity: vacuum.dreame_r2205_ad79_robot_cleaner
+    color: primary
+    show_entity_picture: false
+    state_content:
+      - state
+      - vacuum.status_desc
+    tap_action:
+      action: none
+  - type: entity
+    entity: sensor.dreame_r2205_ad79_battery_level
+  - type: entity
+    show_name: false
+    show_state: true
+    show_icon: true
+    entity: vacuum.dreame_r2205_ad79_robot_cleaner
+    state_content: fan_speed
+    color: accent
+    icon: mdi:fan
