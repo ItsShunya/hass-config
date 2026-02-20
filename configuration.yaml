@@ -11,6 +11,8 @@ lovelace:
   resources:
     - url: /local/plugins/lovelace-xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js
       type: module
+    - url: /local/plugins/card-mod/card-mod.js
+      type: module
   dashboards:
     lovelace-general:
       mode: yaml
