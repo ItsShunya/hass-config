@@ -39,6 +39,8 @@ lovelace:
       type: module
     - url: /local/plugins/card-mod/card-mod.js
       type: module
+    - url: /local/plugins/weather-forecast-card/weather-forecast-card.js
+      type: module
   dashboards:
     lovelace-general:
       mode: yaml
