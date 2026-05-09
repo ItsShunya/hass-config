@@ -1,3 +1,0 @@
-title: Map
-views:
-  - !include views/map.yaml
