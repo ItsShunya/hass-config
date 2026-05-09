@@ -1,0 +1,18 @@
+type: picture-elements
+elements:
+  - type: state-badge
+    style:
+      left: 38%
+      top: 55%
+    entity: sensor.shunya_s_echo_dot_bedroom_temperature
+    name: Bedroom
+  - type: state-badge
+    style:
+      left: 58%
+      top: 72%
+    entity: sensor.shunya_s_echo_dot_living_room_temperature
+    name: Living Room
+image: /local/images/floor_plan.png
+grid_options:
+  rows: 10
+  columns: 30
