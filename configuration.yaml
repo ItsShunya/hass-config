@@ -48,14 +48,14 @@ lovelace:
       mode: yaml
       filename: dashboards/general/dashboard.yaml
       title: General
-      icon: mdi:floor-plan
+      icon: mdi:home
       show_in_sidebar: true
-    lovelace-map:
-      mode: yaml
-      filename: dashboards/map/dashboard.yaml
-      title: Map
-      icon: mdi:map
-      show_in_sidebar: true
+#    lovelace-map:
+#      mode: yaml
+#      filename: dashboards/map/dashboard.yaml
+#      title: Map
+#      icon: mdi:map
+#      show_in_sidebar: true
     lovelace-clean:
       mode: yaml
       filename: dashboards/clean/dashboard.yaml
