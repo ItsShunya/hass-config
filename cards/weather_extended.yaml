@@ -1,0 +1,48 @@
+type: custom:stack-in-card
+mode: vertical
+cards:
+  - type: custom:weather-forecast-card
+    show_current: true
+    show_forecast: true
+    default_forecast: hourly
+    tap_action:
+      action: more-info
+    entity: weather.forecast_home
+    forecast:
+      mode: simple
+      show_sun_times: false
+      use_color_thresholds: false
+      scroll_to_selected: false
+      hourly_group_size: 2
+    forecast_action:
+      tap_action:
+        action: toggle-forecast
+      hold_action:
+        action: select-forecast-attribute
+  - type: custom:weather-forecast-card
+    show_current: false
+    show_forecast: true
+    default_forecast: daily
+    tap_action:
+      action: more-info
+    entity: weather.forecast_home
+    show_condition_effects: true
+    name: ' '
+    forecast:
+      mode: chart
+      show_sun_times: false
+      use_color_thresholds: false
+      scroll_to_selected: true
+      default_chart_attribute: temperature_and_precipitation
+      show_attribute_selector: false
+      hourly_group_size: 4
+      temperature_precision: 1
+    forecast_action:
+      tap_action:
+        action: toggle-forecast
+      hold_action:
+        action: select-forecast-attribute
+    current:
+      show_attributes: []
+      secondary_info_attribute: humidity
+      temperature_precision: 1
