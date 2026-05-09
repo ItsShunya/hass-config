@@ -1,3 +1,4 @@
 title: General
 views:
   - !include views/overview.yaml
+  - !include views/vacuum.yaml

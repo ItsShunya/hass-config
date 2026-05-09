@@ -1,5 +1,6 @@
 title: Home
 icon: mdi:home
+path: overview
 type: sections
 max_columns: 10
 dense_section_placement: true
@@ -10,7 +11,6 @@ header:
   badges_wrap: scroll
 show_icon_and_title: false
 top_margin: false
-path: overview
 subview: false
 sections:
   - type: grid

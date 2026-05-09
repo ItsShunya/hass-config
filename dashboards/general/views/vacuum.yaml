@@ -1,0 +1,6 @@
+title: Vacuum
+icon: mdi:robot-vacuum
+path: vacuum
+type: panel
+cards:
+  - !include ../../../cards/vacuum_map.yaml

@@ -1,0 +1,225 @@
+type: custom:xiaomi-vacuum-map-card
+vacuum_platform: al-one/hass-xiaomi-miot
+entity: vacuum.dreame_r2205_ad79_robot_cleaner
+map_source:
+  camera: camera.dreamebot_d10_plus_live_map
+calibration_source:
+  camera: true
+icons:
+  - icon: mdi:play
+    tooltip: Start
+    tap_action:
+      action: call-service
+      service: vacuum.start
+      service_data:
+        entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+    conditions:
+      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+        value: docked
+  - icon: mdi:stop
+    tooltip: Stop
+    tap_action:
+      action: call-service
+      service: vacuum.stop
+      service_data:
+        entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+    conditions:
+      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+        value_not: docked
+      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+        value_not: idle
+      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+        value_not: error
+      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+        value_not: paused
+  - icon: mdi:home-map-marker
+    tooltip: Return to base
+    tap_action:
+      action: call-service
+      service: vacuum.return_to_base
+      service_data:
+        entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+    conditions:
+      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+        value_not: docked
+      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+        value_not: returning
+  - icon: mdi:map-marker
+    tooltip: Locate
+    tap_action:
+      action: call-service
+      service: vacuum.locate
+      service_data:
+        entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+map_modes:
+  - name: Zone cleanup
+    icon: mdi:select-drag
+    run_immediately: false
+    coordinates_rounding: true
+    coordinates_to_meters_divider: 1000
+    selection_type: MANUAL_RECTANGLE
+    max_selections: 10
+    repeats_type: EXTERNAL
+    max_repeats: 3
+    service_call_schema:
+      service: dreame_vacuum.vacuum_clean_zone
+      service_data:
+        entity_id: '[[entity_id]]'
+        zone: '[[selection]]'
+        repeats: '[[repeats]]'
+    predefined_selections: []
+    variables: {}
+  - name: Rooms
+    icon: mdi:floor-plan
+    run_immediately: false
+    coordinates_rounding: true
+    coordinates_to_meters_divider: 1000
+    selection_type: ROOM
+    max_selections: 1
+    repeats_type: EXTERNAL
+    max_repeats: 3
+    service_call_schema:
+      service: dreame_vacuum.vacuum_clean_segment
+      service_data:
+        entity_id: '[[entity_id]]'
+        segments: '[[selection]]'
+        repeats: '[[repeats]]'
+    predefined_selections:
+      - id: 1
+        outline:
+          - - -7050
+            - 5200
+          - - -7050
+            - 6150
+          - - -6750
+            - 6150
+          - - -6750
+            - 5200
+      - id: 2
+        outline:
+          - - -7000
+            - 650
+          - - -7000
+            - 2000
+          - - -5700
+            - 2000
+          - - -5700
+            - 650
+      - id: 3
+        outline:
+          - - -8550
+            - 5000
+          - - -8550
+            - 6050
+          - - -6950
+            - 6050
+          - - -6950
+            - 5000
+      - id: 4
+        outline:
+          - - -500
+            - -1050
+          - - -500
+            - 450
+          - - 2450
+            - 450
+          - - 2450
+            - -1050
+      - id: 6
+        outline:
+          - - -8300
+            - -850
+          - - -8300
+            - 700
+          - - -5650
+            - 700
+          - - -5650
+            - -850
+      - id: 7
+        outline:
+          - - -5700
+            - -1050
+          - - -5700
+            - 4800
+          - - -300
+            - 4800
+          - - -300
+            - -1050
+      - id: 8
+        outline:
+          - - -7000
+            - 1900
+          - - -7000
+            - 4800
+          - - -4750
+            - 4800
+          - - -4750
+            - 1900
+      - id: 9
+        outline:
+          - - -9150
+            - 650
+          - - -9150
+            - 5000
+          - - -6700
+            - 5000
+          - - -6700
+            - 650
+    variables: {}
+  - name: Clean Spot
+    icon: mdi:map-marker-plus
+    run_immediately: false
+    coordinates_rounding: true
+    coordinates_to_meters_divider: 1000
+    selection_type: MANUAL_POINT
+    max_selections: 999
+    repeats_type: EXTERNAL
+    max_repeats: 3
+    service_call_schema:
+      service: dreame_vacuum.vacuum_clean_spot
+      service_data:
+        entity_id: '[[entity_id]]'
+        points: '[[selection]]'
+        repeats: '[[repeats]]'
+    predefined_selections: []
+    variables: {}
+grid_options:
+  rows: 8
+two_finger_pan: true
+map_locked: true
+title: ''
+additional_presets: []
+tiles:
+  - icon: mdi:brush-variant
+    label: Left Brush time remaining (h)
+    entity: sensor.dreame_r2205_ad79_brush_left_time
+  - icon: mdi:brush-variant
+    label: Right Brush time remaining (h)
+    entity: sensor.dreame_r2205_ad79_brush_left_time_2
+  - icon: mdi:air-filter
+    label: Filter time left (h)
+    entity: sensor.dreame_r2205_ad79_filter_left_time
+  - icon: mdi:battery-50
+    label: Battery (%)
+    entity: sensor.dreame_r2205_ad79_battery_level
+  - icon: mdi:robot-vacuum
+    label: Charging state
+    entity: sensor.dreame_r2205_ad79_charging_state
+card_mod:
+  style: |
+    ha-card {
+      #--map-card-primary-color: blue;
+      #--map-card-zoomer-background: rgba(155, 130, 131, 0.7);
+      display: flex !important;
+      align-items: stretch;
+      flex-wrap: wrap;
+      justify-content: space-evenly;
+    }
+    .map-wrapper {
+      flex-grow: 3;
+      width: 500px;
+    }
+    .controls-wrapper {
+      flex-grow: 1;
+      width: 300px;
+    }
