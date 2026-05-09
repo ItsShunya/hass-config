@@ -1,11 +1,26 @@
 type: custom:xiaomi-vacuum-map-card
+title: ''
 vacuum_platform: al-one/hass-xiaomi-miot
 entity: vacuum.dreame_r2205_ad79_robot_cleaner
+grid_options:
+  rows: 8
+
+# Map's camera source comes from Xiaomi Cloud Map Extractor.
 map_source:
   camera: camera.dreamebot_d10_plus_live_map
+  crop: # Zoomout
+    top: -100
+    bottom: -100
+    left: -100
+    right: -100
+two_finger_pan: true
+map_locked: true
 calibration_source:
   camera: true
+
+# List of icons in the main bar (e.g. Play, Stop, etc).
 icons:
+  # Start clean routine.
   - icon: mdi:play
     tooltip: Start
     tap_action:
@@ -16,6 +31,7 @@ icons:
     conditions:
       - entity: vacuum.dreame_r2205_ad79_robot_cleaner
         value: docked
+  # Pause current routine.
   - icon: mdi:stop
     tooltip: Stop
     tap_action:
@@ -32,6 +48,7 @@ icons:
         value_not: error
       - entity: vacuum.dreame_r2205_ad79_robot_cleaner
         value_not: paused
+  # Return to the dock to charge.
   - icon: mdi:home-map-marker
     tooltip: Return to base
     tap_action:
@@ -44,6 +61,7 @@ icons:
         value_not: docked
       - entity: vacuum.dreame_r2205_ad79_robot_cleaner
         value_not: returning
+  # Locate roomba (by sound).
   - icon: mdi:map-marker
     tooltip: Locate
     tap_action:
@@ -51,6 +69,8 @@ icons:
       service: vacuum.locate
       service_data:
         entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+
+# Configurable actions in the map.
 map_modes:
   - name: Zone cleanup
     icon: mdi:select-drag
@@ -183,12 +203,8 @@ map_modes:
         repeats: '[[repeats]]'
     predefined_selections: []
     variables: {}
-grid_options:
-  rows: 8
-two_finger_pan: true
-map_locked: true
-title: ''
-additional_presets: []
+
+# Extra customuzable tiles at the bottom for sensors/buttons.
 tiles:
   - icon: mdi:brush-variant
     label: Left Brush time remaining (h)
@@ -205,6 +221,8 @@ tiles:
   - icon: mdi:robot-vacuum
     label: Charging state
     entity: sensor.dreame_r2205_ad79_charging_state
+
+# Custom CSS styling for this card.
 card_mod:
   style: |
     ha-card {

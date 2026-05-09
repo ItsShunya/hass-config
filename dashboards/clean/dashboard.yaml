@@ -1,3 +1,0 @@
-title: Cleaning
-views:
-  - !include views/vacuum_map.yaml
