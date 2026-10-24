@@ -4,12 +4,22 @@ backups
 .storage
 deps
 tts
-blueprints
+/image/
+.ha_run.lock
+.HA_RESTORE
+ip_bans.yaml
+known_devices.yaml
+
+# Only the blueprints shipped by HA; our own blueprints are versioned.
+blueprints/*/homeassistant/
 
 # Logs and databases.
 *.log*
 *.db*
 
+# Python bytecode from custom_components.
+__pycache__/
+*.pyc
+
 # Keys & tokens.
-secrets_template.yaml
 secrets.yaml
