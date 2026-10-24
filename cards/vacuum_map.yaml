@@ -200,11 +200,11 @@ map_modes:
 
 # Extra customuzable tiles at the bottom for sensors/buttons.
 tiles:
-  - icon: mdi:brush-variant
-    label: Left Brush time remaining (h)
+  - icon: mdi:brush
+    label: Main brush time remaining (h)
     entity: sensor.dreame_r2205_ad79_brush_left_time
   - icon: mdi:brush-variant
-    label: Right Brush time remaining (h)
+    label: Side brush time remaining (h)
     entity: sensor.dreame_r2205_ad79_brush_left_time_2
   - icon: mdi:air-filter
     label: Filter time left (h)
