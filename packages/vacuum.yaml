@@ -1,0 +1,106 @@
+# Robot vacuum (Dreame D10 Plus, dreame.vacuum.r2205, via Xiaomi Miot).
+# The vacuum map card is in cards/vacuum_map.yaml; its Rooms and Zone
+# cleanup modes call the scripts below.
+
+script:
+  # Both scripts call the MIoT "start-clean" action (siid 4, aiid 1). piid 1
+  # is the work mode (18 = rooms, 19 = zone) and piid 10 the task as a JSON
+  # string, where suction is 1 (Standard) and water 2 (Medium):
+  #   rooms: [room_id, repeats, suction, water, order]
+  #   zone:  [x1, y1, x2, y2, repeats, suction, water]
+  #
+  # params is rendered as one template on purpose. Home Assistant turns a
+  # template that renders to JSON into a dict, but the vacuum needs piid 10
+  # as a string; nested inside the list, to_json's output stays a string.
+  vacuum_clean_rooms:
+    alias: Vacuum - clean rooms
+    description: Clean one or more rooms, in the given order.
+    icon: mdi:floor-plan
+    fields:
+      rooms:
+        description: Room segment id, or a list of them, as outlined on the vacuum map card.
+        required: true
+        example: "[4, 7]"
+        selector:
+          object:
+      repeats:
+        description: Passes over each room.
+        default: 1
+        selector:
+          number:
+            min: 1
+            max: 3
+    sequence:
+      - action: xiaomi_miot.call_action
+        data:
+          entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+          siid: 4
+          aiid: 1
+          params: >-
+            {%- set ids = rooms if rooms is list else [rooms] -%}
+            {%- set ns = namespace(selects=[]) -%}
+            {%- for id in ids -%}
+              {%- set ns.selects = ns.selects + [[id | int, repeats | default(1) | int, 1, 2, loop.index]] -%}
+            {%- endfor -%}
+            {{ [{'piid': 1, 'value': 18}, {'piid': 10, 'value': {'selects': ns.selects} | to_json}] }}
+          force_params: true
+
+  vacuum_clean_zone:
+    alias: Vacuum - clean zone
+    description: Clean one or more rectangular zones, given in map coordinates.
+    icon: mdi:select-drag
+    fields:
+      zone:
+        description: Rectangle [x1, y1, x2, y2], or a list of them, as drawn on the vacuum map card.
+        required: true
+        example: "[[-7000, 650, -5700, 2000]]"
+        selector:
+          object:
+      repeats:
+        description: Passes over each zone.
+        default: 1
+        selector:
+          number:
+            min: 1
+            max: 3
+    sequence:
+      - action: xiaomi_miot.call_action
+        data:
+          entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+          siid: 4
+          aiid: 1
+          params: >-
+            {%- set zones = zone if zone[0] is list else [zone] -%}
+            {%- set ns = namespace(areas=[]) -%}
+            {%- for z in zones -%}
+              {%- set ns.areas = ns.areas + [(z | map('int') | list) + [repeats | default(1) | int, 1, 2]] -%}
+            {%- endfor -%}
+            {{ [{'piid': 1, 'value': 19}, {'piid': 10, 'value': {'areas': ns.areas} | to_json}] }}
+          force_params: true
+
+automation:
+  - id: vacuum_consumable_low
+    alias: Vacuum - consumable running low
+    description: Notify when a brush or the filter has less than 10 hours of life left.
+    # The trigger id is the part's name, used in the message.
+    triggers:
+      - trigger: numeric_state
+        id: Main brush
+        entity_id: sensor.dreame_r2205_ad79_brush_left_time
+        below: 10
+      - trigger: numeric_state
+        id: Side brush
+        entity_id: sensor.dreame_r2205_ad79_brush_left_time_2
+        below: 10
+      - trigger: numeric_state
+        id: Filter
+        entity_id: sensor.dreame_r2205_ad79_filter_left_time
+        below: 10
+    actions:
+      - action: persistent_notification.create
+        data:
+          notification_id: "{{ trigger.entity_id }}"
+          title: Vacuum maintenance
+          message: >-
+            {{ trigger.id }} has {{ trigger.to_state.state }} hours left.
+            Replace or clean it soon, then reset its counter in the Xiaomi Home app.

@@ -1,3 +1,9 @@
+# Each file in packages/ groups everything one feature needs (automations,
+# scripts, helpers, template sensors...). Only packages is set here: core
+# settings like location or units stay editable in the UI.
+homeassistant:
+  packages: !include_dir_named packages
+
 # These are from default_config, with the ones that I don't need
 # commented out. It would be nice if the default_config: could have
 # an exclude list, to stay in sync with the distributed defaults,

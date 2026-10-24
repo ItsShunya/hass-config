@@ -15,6 +15,8 @@ The repository mirrors the layout of Home Assistant's `/config` directory, so it
 
 - **`configuration.yaml`**: The main configuration file where you define integrations, settings, and core options.
 - **`automations.yaml`**, **`scripts.yaml`**, **`scenes.yaml`**: Automations, reusable action sequences, and saved device states. They are empty for now; the UI editors write to these files, so changes made there must be copied back into the repository.
+- **`packages/`**: One file per feature (e.g. `vacuum.yaml`), holding everything that feature needs: automations, scripts, helpers, template sensors and so on. Each file is loaded as a [package](https://www.home-assistant.io/docs/configuration/packages/) named after it.
+  - Use packages for configuration written by hand. Automations and scripts made in the UI editors go to `automations.yaml` and `scripts.yaml` instead, because the editors can't edit those defined in packages.
 - **`dashboards/`**: Dashboards in YAML mode, registered under `lovelace.dashboards` in `configuration.yaml`.
   - Each subdirectory is one dashboard: a `dashboard.yaml` plus a `views/` folder with one file per view.
 - **`cards/`**: Reusable cards, included from views with `!include` so each card is defined once.
