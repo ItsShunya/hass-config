@@ -33,15 +33,20 @@ frontend:
 
 lovelace:
   resource_mode: yaml
-  # Bump ?v= on every card update so browsers drop the cached file
+  # Bump ?v= on every card update so browsers drop the cached file.
+  # The "renovate" comments tell Renovate where to look for new releases.
   # (see docs/vendored.md).
   resources:
+    # renovate: repo=PiotrMachowski/lovelace-xiaomi-vacuum-map-card
     - url: /local/plugins/xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js?v=2.3.2
       type: module
+    # renovate: repo=thomasloven/lovelace-card-mod
     - url: /local/plugins/card-mod/card-mod.js?v=4.2.1
       type: module
+    # renovate: repo=troinine/ha-weather-forecast-card
     - url: /local/plugins/weather-forecast-card/weather-forecast-card.js?v=1.0.0
       type: module
+    # renovate: repo=custom-cards/stack-in-card
     - url: /local/plugins/stack-in-card/stack-in-card.js?v=0.2.0
       type: module
   dashboards:

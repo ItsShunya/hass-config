@@ -1,0 +1,54 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:recommended"],
+
+  // Only report updates in the Dependency Dashboard issue. Renovate creates
+  // no branch or PR unless its box is ticked there: vendored code has to be
+  // replaced by hand (see docs/vendored.md), not just its version number.
+  dependencyDashboardApproval: true,
+  dependencyDashboardAutoclose: true,
+  dependencyDashboardTitle: "Updates available",
+  dependencyDashboardLabels: ["updates"],
+
+  // Only the version sources below, plus the actions used by the workflows.
+  // The built-in homeassistant-manifest manager would list every vendored
+  // integration's Python requirements, which we don't manage.
+  enabledManagers: ["custom.regex", "github-actions"],
+
+  // Integrations and cards use "loose" versioning: the default one skips the
+  // map extractor's "v3.0.0-alpha-N" releases entirely, and strict semver
+  // sorts alpha-9 above alpha-24.
+
+  customManagers: [
+    {
+      description: "Home Assistant version in .HA_VERSION",
+      customType: "regex",
+      managerFilePatterns: ["/^\\.HA_VERSION$/"],
+      matchStrings: ["^(?<currentValue>\\S+)"],
+      depNameTemplate: "home-assistant",
+      packageNameTemplate: "ghcr.io/home-assistant/home-assistant",
+      datasourceTemplate: "docker",
+      versioningTemplate: "pep440",
+    },
+    {
+      description: "Vendored integrations: version and upstream repository from manifest.json",
+      customType: "regex",
+      managerFilePatterns: ["/^custom_components/[^/]+/manifest\\.json$/"],
+      matchStrings: [
+        '"domain": "(?<depName>[^"]+)"[\\s\\S]*?"issue_tracker": "https://github\\.com/(?<packageName>[^/]+/[^/]+)/issues"[\\s\\S]*?"version": "(?<currentValue>[^"]+)"',
+      ],
+      datasourceTemplate: "github-releases",
+      versioningTemplate: "loose",
+    },
+    {
+      description: "Vendored cards: version from the ?v= suffix, repository from the renovate comment above it",
+      customType: "regex",
+      managerFilePatterns: ["/^configuration\\.yaml$/"],
+      matchStrings: [
+        "# renovate: repo=(?<packageName>\\S+)\\n\\s*- url: /local/plugins/(?<depName>[^/]+)/[^?\\s]+\\?v=(?<currentValue>\\S+)",
+      ],
+      datasourceTemplate: "github-releases",
+      versioningTemplate: "loose",
+    },
+  ],
+}

@@ -1,6 +1,10 @@
 # Vendored third-party code
 
-Custom integrations (`custom_components/`) and dashboard cards (`www/plugins/`) are copied into this repository instead of being installed with HACS, so a checkout always contains everything the configuration needs. The trade-off is that updates are manual: nothing tells you when a new version is out, so check the upstream releases from time to time.
+Custom integrations (`custom_components/`) and dashboard cards (`www/plugins/`) are copied into this repository instead of being installed with HACS, so a checkout always contains everything the configuration needs. The trade-off is that updates are manual. To make up for it, the [Renovate](https://github.com/apps/renovate) GitHub App compares these components and Home Assistant itself with their latest upstream releases. When something is behind, it lists it in its **Updates available** issue (labelled `updates`), with links to the release notes, and closes the issue once everything is current.
+
+Renovate is configured in [`.github/renovate.json5`](../.github/renovate.json5) to only report: it opens no branches or pull requests unless you tick an update's checkbox in that issue. Don't tick them for vendored components, since a pull request would only change the version number, not the code; update by hand as described below, and Renovate notices the new version on its next run.
+
+Renovate reads the installed versions from the repository: `.HA_VERSION`, each integration's `manifest.json` (whose `issue_tracker` URL names the upstream repository), and each card's `?v=` suffix in `configuration.yaml`. When adding a new card, put a `# renovate: repo=<owner>/<name>` comment above its resource in `configuration.yaml`, like the existing ones.
 
 Each vendored folder keeps the upstream `LICENSE` file. This code is **not** covered by the repository's Apache-2.0 license; each component stays under its own license, listed below.
 
