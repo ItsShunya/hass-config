@@ -1,0 +1,1852 @@
+"""Config flow for the Verisure OWA platform."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import socket
+import time
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    # HA 2026.9+ runs voluptuous as probatio; 2026.10+ types its APIs with probatio's classes.
+    import probatio as vol
+else:
+    # At run time: HA before 2026.9, back to our minimum supported HA (2025.2), has no probatio.
+    import voluptuous as vol
+from homeassistant import config_entries
+from homeassistant.const import (
+    CONF_CODE,
+    CONF_DEVICE_ID,
+    CONF_PASSWORD,
+    CONF_SCAN_INTERVAL,
+    CONF_UNIQUE_ID,
+    CONF_USERNAME,
+)
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import section
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    CountrySelector,
+    CountrySelectorConfig,
+    selector,
+)
+from homeassistant.helpers.typing import UNDEFINED, UndefinedType
+
+from . import (
+    CONF_ADVANCED,
+    CONF_AUTO_FORCE_ARM,
+    CONF_CODE_ARM_REQUIRED,
+    CONF_CODE_HASH,
+    CONF_CODE_IS_NUMERIC,
+    CONF_COUNTRY,
+    CONF_DELAY_CHECK_OPERATION,
+    CONF_DEVICE_INDIGITALL,
+    CONF_ENTRY_ID,
+    CONF_FORCE_ARM_NOTIFICATIONS,
+    CONF_INSTALLATION,
+    CONF_LOCK_CODE_REQUIRED,
+    CONF_MAP_AWAY,
+    CONF_MAP_CUSTOM,
+    CONF_MAP_HOME,
+    CONF_MAP_NIGHT,
+    CONF_MAP_VACATION,
+    CONF_NOTIFY_GROUP,
+    CONF_OPERATION_POLL_TIMEOUT,
+    COUNTRY_CODES,
+    DEFAULT_AUTO_FORCE_ARM,
+    DEFAULT_CODE,
+    DEFAULT_CODE_ARM_REQUIRED,
+    DEFAULT_DELAY_CHECK_OPERATION,
+    DEFAULT_FORCE_ARM_NOTIFICATIONS,
+    DEFAULT_LOCK_CODE_REQUIRED,
+    DEFAULT_OPERATION_POLL_TIMEOUT,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    VerisureHub,
+    _account_lock,
+    _async_teardown_domain_if_unused,
+    _async_update_duplicate_entry_issues,
+    _clear_setup_refresh_refusals,
+    _clear_setup_unreachable,
+    _clear_sign_in_issues,
+    _flow_session_holder,
+    _login_ipv4_then_any,
+    _new_session_record,
+    _publish_flow_capabilities,
+    _release_flow_hold,
+    _replace_account_session,
+    _resolve_flow_capabilities,
+    _store_installations_cache,
+    _sync_kept_password,
+    _take_session_hold,
+    _unique_id_for,
+    generate_uuid,
+)
+from .api_queue import ApiQueue
+from .const import (
+    CIRCUIT_ANNEX,
+    CIRCUIT_INTERIOR,
+    CIRCUIT_PERIMETER,
+    CONF_ENABLE_ACTIVITY_POLLING,
+    CONF_ENABLE_ANNEX_PANEL,
+    CONF_ENABLE_INTERIOR_PANEL,
+    CONF_ENABLE_PERIMETER_PANEL,
+    CONF_KEEP_PASSWORD,
+    CONF_LOCK_AUTOMATIONS,
+    CONF_REFRESH_TOKEN,
+    DEFAULT_ENABLE_ACTIVITY_POLLING,
+    LOCK_CIRCUITS,
+    PANEL_OPTION_KEYS,
+)
+from .hub import setup_passwords
+from .pin_crypto import encode_pin
+from .verisure_owa_api import (
+    PERI_DEFAULTS,
+    STATE_LABELS,
+    STD_DEFAULTS,
+    AccountBlockedError,
+    AuthenticationError,
+    Installation,
+    OtpPhone,
+    TwoFactorRequiredError,
+    VerisureOwaError,
+    dropdown_options,
+)
+from .verisure_owa_api.capabilities import detect_annex, detect_peri
+
+_LOGGER = logging.getLogger(__name__)
+
+# Shown as the PIN field's pre-filled value when a PIN is already configured
+# (its hash can't be redisplayed). Resubmitted verbatim = "keep the existing
+# PIN"; cleared = "remove the PIN"; anything else = "set this as the new PIN".
+# Bullets rather than plain asterisks so an actual PIN of literal "*"s can't
+# collide with it, and a fixed length so the field never leaks the real PIN's
+# length.
+_CODE_UNCHANGED_SENTINEL = "●" * 8
+
+# Max seconds the Lock Automation options step waits for background lock
+# discovery to finish before falling through. Sized to cover the worst case
+# we've observed in production logs (~12s for an SDVFAST panel that needs
+# the Danalock GraphQL fallback), with a small safety margin. Module-level
+# so tests can monkeypatch it down.
+LOCK_DISCOVERY_WAIT_TIMEOUT: float = 15.0
+
+# Services that should not appear in the Notify-service dropdown.
+# - `notify` / `send_message`: aliases of the legacy generic notify service;
+#   not useful as a routing target.
+# - `persistent_notification`: the integration already creates its own
+#   persistent notification directly via the `persistent_notification` domain.
+#   Routing via `notify.persistent_notification` would produce a duplicate
+#   card with no actions and no useful body and never reach a real device.
+_NOTIFY_EXCLUDE = {"notify", "send_message", "persistent_notification"}
+
+# Kept outside ``hass.data[DOMAIN]``, which the clean-up discards: a waiting
+# reauth dialog does not count as using the integration, and its entry is not
+# loaded while it reloads or is disabled, so the clean-up can run while the
+# dialog's submission waits on Verisure.
+_SIGN_INS_IN_FLIGHT = f"{DOMAIN}_sign_ins_in_flight"
+
+
+# Section keys for the grouped settings schema. Persisted-data shape stays
+# flat — the handlers flatten these section payloads back to top-level keys.
+SECTION_PIN = "pin"
+SECTION_NOTIFICATIONS = "notifications"
+SECTION_SUBPANELS = "subpanels"
+SECTION_ACTIVITY = "activity"
+SECTION_SIGN_IN = "sign_in"
+_ALL_SECTIONS = (
+    SECTION_PIN,
+    SECTION_NOTIFICATIONS,
+    SECTION_SUBPANELS,
+    SECTION_ACTIVITY,
+    SECTION_SIGN_IN,
+    CONF_ADVANCED,
+)
+
+
+# Localized notes appended to the mappings step's description when
+# perimeter and/or annex sub-panels are available. Hassfest doesn't allow
+# arbitrary nested keys in strings.json (the form-step schema is strict),
+# so we keep these in Python and look them up by hass.config.language.
+# Falls back to English when the locale isn't covered.
+# pylint: disable=line-too-long
+_SUBPANELS_NOTES: dict[str, dict[str, str]] = {
+    "en": {
+        "peri": "The optional Interior-only and Perimeter-only panels do not use these mappings.",
+        "annex": "The optional Interior-only and Annex-only panels do not use these mappings.",
+        "both": "The optional Interior-only, Perimeter-only and Annex-only panels do not use these mappings.",
+    },
+    "es": {
+        "peri": "Los paneles opcionales solo Interior y solo Perimetral no usan estas asignaciones.",
+        "annex": "Los paneles opcionales solo Interior y solo Anexo no usan estas asignaciones.",
+        "both": "Los paneles opcionales solo Interior, solo Perimetral y solo Anexo no usan estas asignaciones.",
+    },
+    "fr": {
+        "peri": "Les panneaux optionnels Intérieur uniquement et Périmètre uniquement n'utilisent pas ces associations.",
+        "annex": "Les panneaux optionnels Intérieur uniquement et Annexe uniquement n'utilisent pas ces associations.",
+        "both": "Les panneaux optionnels Intérieur uniquement, Périmètre uniquement et Annexe uniquement n'utilisent pas ces associations.",
+    },
+    "it": {
+        "peri": "I pannelli opzionali solo Interno e solo Perimetrale non usano queste associazioni.",
+        "annex": "I pannelli opzionali solo Interno e solo Annesso non usano queste associazioni.",
+        "both": "I pannelli opzionali solo Interno, solo Perimetrale e solo Annesso non usano queste associazioni.",
+    },
+    "pt": {
+        "peri": "Os painéis opcionais apenas Interior e apenas Perímetro não usam estas associações.",
+        "annex": "Os painéis opcionais apenas Interior e apenas Anexo não usam estas associações.",
+        "both": "Os painéis opcionais apenas Interior, apenas Perímetro e apenas Anexo não usam estas associações.",
+    },
+    "pt-BR": {
+        "peri": "Os painéis opcionais apenas Interior e apenas Perímetro não usam estas associações.",
+        "annex": "Os painéis opcionais apenas Interior e apenas Anexo não usam estas associações.",
+        "both": "Os painéis opcionais apenas Interior, apenas Perímetro e apenas Anexo não usam estas associações.",
+    },
+    "ca": {
+        "peri": "Els panells opcionals només Interior i només Perímetre no fan servir aquestes assignacions.",
+        "annex": "Els panells opcionals només Interior i només Annex no fan servir aquestes assignacions.",
+        "both": "Els panells opcionals només Interior, només Perímetre i només Annex no fan servir aquestes assignacions.",
+    },
+}
+# pylint: enable=line-too-long
+
+
+def _subpanels_note(hass: HomeAssistant, *, has_peri: bool, has_annex: bool) -> str:
+    """Return the localized sub-panels note for the mappings step.
+
+    Empty string when neither perimeter nor annex is supported. Otherwise
+    picks one of three sentences (peri-only, annex-only, both) based on
+    capability.
+    """
+    if not (has_peri or has_annex):
+        return ""
+    key = "both" if has_peri and has_annex else "peri" if has_peri else "annex"
+    locale = _SUBPANELS_NOTES.get(hass.config.language, _SUBPANELS_NOTES["en"])
+    return f" {locale.get(key, _SUBPANELS_NOTES['en'][key])}"
+
+
+def _mapping_field(key: str, suggestion: str | None) -> vol.Optional:
+    """Build a vol.Optional marker for a state-mapping field.
+
+    Uses ``description={"suggested_value": ...}`` rather than ``default=`` so
+    that clearing the field in the UI persists as a missing key (= "not used")
+    instead of being silently re-filled with the default on submit. When the
+    suggestion is None the field renders blank.
+    """
+    if suggestion is None:
+        return vol.Optional(key)
+    return vol.Optional(key, description={"suggested_value": suggestion})
+
+
+def _mapping_select_options(*, has_peri: bool, has_annex: bool) -> list[dict[str, str]]:
+    """Build the dropdown options for a state-mapping field.
+
+    Clearing happens via the form's X (clear) button — HA's frontend then
+    omits the key from user_input. ``_normalize_mapping_input`` surfaces
+    that absence as an explicit ``""`` in entry.options so the update
+    listener sees a diff against the stale entry.data value and syncs.
+    """
+    return [
+        {"value": s.value, "label": STATE_LABELS[s]}
+        for s in dropdown_options(has_peri=has_peri, has_annex=has_annex)
+    ]
+
+
+_MAPPING_FIELDS: tuple[str, ...] = (
+    CONF_MAP_HOME,
+    CONF_MAP_AWAY,
+    CONF_MAP_NIGHT,
+    CONF_MAP_VACATION,
+    CONF_MAP_CUSTOM,
+)
+
+
+def _normalize_mapping_input(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Ensure every mapping field is present in ``user_input``.
+
+    HA's frontend omits cleared select fields from the submitted user_input
+    entirely (rather than sending an empty string). With the prior options
+    dict also missing the same key from an earlier broken save, the new
+    options dict would match the old one and no update listener would fire
+    — the cleared state never reaches entry.data, and the form keeps
+    pre-filling with the stale value on the next open.
+
+    Surface the cleared state as an explicit ``""`` so the diff vs. the
+    prior options is non-empty and downstream sync runs.
+    """
+    return {key: user_input.get(key, "") for key in _MAPPING_FIELDS} | {
+        k: v for k, v in user_input.items() if k not in _MAPPING_FIELDS
+    }
+
+
+def _flatten_sections(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Flatten all known section payloads back to top-level keys."""
+    flat: dict[str, Any] = {}
+    for key, value in user_input.items():
+        if key in _ALL_SECTIONS and isinstance(value, dict):
+            flat.update(value)
+        else:
+            flat[key] = value
+    return flat
+
+
+def _build_panel_extra_fields(
+    *,
+    has_peri: bool,
+    has_annex: bool,
+    peri_default: bool = False,
+    annex_default: bool = False,
+    interior_default: bool = False,
+) -> dict[Any, Any]:
+    """Build the capability-gated panel-toggle entries for the sub-panels section.
+
+    The interior toggle appears whenever any sibling axis is supported; this
+    matches the post-setup options behaviour so users on any peri- or annex-
+    capable installation can carve a separate interior sub-panel even after
+    flipping the sibling off.
+
+    The returned dict is the *contents* of the SECTION_SUBPANELS section; the
+    caller wraps it in a `section()` only when non-empty.
+    """
+    fields: dict[Any, Any] = {}
+    if has_peri:
+        fields[vol.Optional(CONF_ENABLE_PERIMETER_PANEL, default=peri_default)] = bool
+    if has_annex:
+        fields[vol.Optional(CONF_ENABLE_ANNEX_PANEL, default=annex_default)] = bool
+    if has_peri or has_annex:
+        fields[vol.Optional(CONF_ENABLE_INTERIOR_PANEL, default=interior_default)] = (
+            bool
+        )
+    return fields
+
+
+def _get_notify_options(hass: HomeAssistant) -> list[dict[str, str]]:
+    """Build notify service dropdown options."""
+    notify_services = sorted(
+        svc
+        for svc in hass.services.async_services().get("notify", {})
+        if svc not in _NOTIFY_EXCLUDE
+    )
+    return [{"value": "", "label": "(disabled)"}] + [
+        {"value": svc, "label": svc} for svc in notify_services
+    ]
+
+
+def _resolve_code_submission(
+    raw_code: str,
+    existing_hash: str | None,
+    existing_is_numeric: bool,
+) -> tuple[str | None, bool]:
+    """Translate the raw PIN field submission into what to persist.
+
+    Returns ``(code_hash, code_is_numeric)`` for CONF_CODE_HASH /
+    CONF_CODE_IS_NUMERIC. Both are always returned explicitly (never
+    omitted) because these are options-managed fields that get *replaced*
+    wholesale from entry.options on every save (see _OPTIONS_MANAGED_FIELDS
+    in __init__.py) — leaving either key out would silently drop the
+    existing PIN instead of carrying it forward.
+
+    - Resubmitted verbatim as the mask sentinel → carry the existing hash
+      forward unchanged (the user didn't touch the field). Reusing it rather
+      than re-hashing also keeps the value stable: hashing is salted, so a
+      fresh hash on every save would churn CONF_CODE_HASH and trigger a
+      pointless entry reload via async_update_options.
+    - Blank → clear the PIN.
+    - Anything else → hash it as the new PIN.
+    """
+    if existing_hash and raw_code == _CODE_UNCHANGED_SENTINEL:
+        return existing_hash, existing_is_numeric
+    return encode_pin(raw_code)
+
+
+def _build_settings_schema(
+    defaults: dict[str, Any],
+    notify_options: list[dict[str, str]],
+    *,
+    use_suggested: bool = False,
+    extra_fields: dict[Any, Any] | None = None,
+    keep_password_default: bool | None = None,
+) -> vol.Schema:
+    """Build the shared sectioned settings schema for config and options flows.
+
+    Layout: a PIN section, a Force-arm-notifications section, an optional
+    Sub-panels section (only present when ``extra_fields`` is non-empty),
+    an optional Sign-in section (only present when ``keep_password_default``
+    is given), and a collapsed Advanced section. Section payloads are flattened back
+    to top-level keys by ``_flatten_sections`` before persistence — the
+    saved data shape is unchanged.
+
+    The PIN field can't be pre-filled with the real value (only its hash is
+    stored). When ``defaults`` carries a CONF_CODE_HASH, the field shows
+    ``_CODE_UNCHANGED_SENTINEL`` instead — see ``_resolve_code_submission``
+    for how the three possible submissions (sentinel / blank / new value)
+    are interpreted. It renders as a password input so a newly typed PIN
+    isn't left on screen in the clear.
+    """
+    has_existing_code = bool(defaults.get(CONF_CODE_HASH))
+    code_val = _CODE_UNCHANGED_SENTINEL if has_existing_code else DEFAULT_CODE
+    code_field = (
+        vol.Optional(CONF_CODE, description={"suggested_value": code_val})
+        if use_suggested
+        else vol.Optional(CONF_CODE, default=code_val)
+    )
+
+    pin_section = section(
+        vol.Schema(
+            {
+                # autocomplete="new-password" keeps password managers from
+                # autofilling over the mask sentinel: that would silently
+                # replace the alarm PIN with an unrelated saved password, and
+                # unlike before hashing, the value can't be read back to spot
+                # it.
+                code_field: selector(
+                    {"text": {"type": "password", "autocomplete": "new-password"}}
+                ),
+                vol.Optional(
+                    CONF_CODE_ARM_REQUIRED,
+                    default=defaults.get(
+                        CONF_CODE_ARM_REQUIRED, DEFAULT_CODE_ARM_REQUIRED
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_LOCK_CODE_REQUIRED,
+                    default=defaults.get(
+                        CONF_LOCK_CODE_REQUIRED, DEFAULT_LOCK_CODE_REQUIRED
+                    ),
+                ): bool,
+            }
+        ),
+        {"collapsed": False},
+    )
+
+    notifications_section = section(
+        vol.Schema(
+            {
+                vol.Optional(
+                    CONF_NOTIFY_GROUP,
+                    default=defaults.get(CONF_NOTIFY_GROUP, ""),
+                ): selector(
+                    {
+                        "select": {
+                            "options": notify_options,
+                            "custom_value": True,
+                            "mode": "dropdown",
+                        }
+                    }
+                ),
+                vol.Optional(
+                    CONF_FORCE_ARM_NOTIFICATIONS,
+                    default=defaults.get(
+                        CONF_FORCE_ARM_NOTIFICATIONS, DEFAULT_FORCE_ARM_NOTIFICATIONS
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_AUTO_FORCE_ARM,
+                    default=defaults.get(CONF_AUTO_FORCE_ARM, DEFAULT_AUTO_FORCE_ARM),
+                ): bool,
+            }
+        ),
+        {"collapsed": False},
+    )
+
+    activity_section = section(
+        vol.Schema(
+            {
+                vol.Optional(
+                    CONF_ENABLE_ACTIVITY_POLLING,
+                    default=defaults.get(
+                        CONF_ENABLE_ACTIVITY_POLLING, DEFAULT_ENABLE_ACTIVITY_POLLING
+                    ),
+                ): bool,
+            }
+        ),
+        {"collapsed": False},
+    )
+
+    advanced_section = section(
+        vol.Schema(
+            {
+                vol.Optional(
+                    CONF_SCAN_INTERVAL,
+                    default=defaults.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                ): int,
+                vol.Optional(
+                    CONF_DELAY_CHECK_OPERATION,
+                    default=defaults.get(
+                        CONF_DELAY_CHECK_OPERATION,
+                        DEFAULT_DELAY_CHECK_OPERATION,
+                    ),
+                ): vol.All(vol.Coerce(float), vol.Range(min=2.0, max=15.0)),
+                vol.Optional(
+                    CONF_OPERATION_POLL_TIMEOUT,
+                    default=defaults.get(
+                        CONF_OPERATION_POLL_TIMEOUT,
+                        DEFAULT_OPERATION_POLL_TIMEOUT,
+                    ),
+                ): vol.All(vol.Coerce(float), vol.Range(min=60.0, max=300.0)),
+            }
+        ),
+        {"collapsed": True},
+    )
+
+    schema_dict: dict[Any, Any] = {
+        vol.Required(SECTION_PIN): pin_section,
+        vol.Required(SECTION_NOTIFICATIONS): notifications_section,
+    }
+    if extra_fields:
+        schema_dict[vol.Required(SECTION_SUBPANELS)] = section(
+            vol.Schema(extra_fields),
+            {"collapsed": False},
+        )
+    schema_dict[vol.Optional(SECTION_ACTIVITY)] = activity_section
+    if keep_password_default is not None:
+        schema_dict[vol.Optional(SECTION_SIGN_IN)] = section(
+            vol.Schema(
+                {vol.Optional(CONF_KEEP_PASSWORD, default=keep_password_default): bool}
+            ),
+            {"collapsed": False},
+        )
+    schema_dict[vol.Optional(CONF_ADVANCED)] = advanced_section
+    return vol.Schema(schema_dict)
+
+
+class FlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow."""
+
+    VERSION = 5
+    MINOR_VERSION = 2
+
+    def __init__(self) -> None:
+        """Initialize the flow handler."""
+        self.config: dict[str, Any] = {}
+        self.hub: VerisureHub | None = None
+        # True only while self.hub is a hub this flow built (via _create_client)
+        # and may therefore rebuild on the IPv4 fallback. False when self.hub is
+        # borrowed from a running session that entries or other setup dialogs
+        # hold — rebuilding that one would strand them on the old hub (issue #606).
+        self._owns_hub: bool = False
+        # The account whose registered session this setup dialog holds. A
+        # reauth or Reconfigure dialog's own hold is taken and released
+        # inside _finish_reauth.
+        self._held_account: str | None = None
+        self.otp_challenge: tuple[str | None, list[OtpPhone] | None] | None = None
+        self._available_installations: list[Installation] = []
+        self._selected_installation: Installation | None = None
+        self._options_data: dict[str, Any] = {}
+        # Kept separate from _options_data so toggles end up on entry.options,
+        # not entry.data — matches where the post-setup OptionsFlow writes them.
+        self._panel_options: dict[str, Any] = {}
+        self._has_peri: bool = False
+        self._has_annex: bool = False
+        # The entry a reauth or Reconfigure dialog signs in again; the
+        # _reauth_* names cover both.
+        self._reauth_entry: config_entries.ConfigEntry | None = None
+        # The abort reason, set when another dialog saves a sign-in for the
+        # same entry or account while this one's submission is still running.
+        self.overtaken_reason: str | None = None
+
+    async def _create_entry_for_installation(
+        self, installation: Installation
+    ) -> config_entries.ConfigFlowResult:
+        """Register a new entry with the refresh token, and the password only
+        when the user ticked the box to keep it."""
+        username = self.config[CONF_USERNAME]
+        unique_id = _unique_id_for(username, installation.number)
+        await self.async_set_unique_id(unique_id)
+        # HA 2026.6: opt out of implicit reload to avoid deprecated double-reload
+        # with the entry-update listener registered in __init__.async_setup_entry.
+        self._abort_if_unique_id_configured(reload_on_update=False)
+        self.config[CONF_INSTALLATION] = installation.number
+        self._follow_replaced_session()
+        assert self.hub is not None
+        refresh_token = self.hub.get_refresh_token()
+        # Refusing here is the only safe move: dropping the password while
+        # writing an empty refresh token would leave the entry unable to
+        # authenticate on the next restart.
+        if not refresh_token:
+            _LOGGER.error(
+                "Login succeeded but no refresh token was returned; "
+                "refusing to create an entry that cannot reauthenticate"
+            )
+            return self.async_abort(reason="no_refresh_token")
+        entry_data = dict(self.config)
+        entry_data[CONF_KEEP_PASSWORD] = bool(entry_data.get(CONF_KEEP_PASSWORD))
+        if not entry_data[CONF_KEEP_PASSWORD]:
+            entry_data.pop(CONF_PASSWORD, None)
+        entry_data[CONF_REFRESH_TOKEN] = refresh_token
+        return self.async_create_entry(
+            title=installation.alias,
+            data=entry_data,
+            options=dict(self._panel_options) if self._panel_options else None,
+        )
+
+    def _create_client(
+        self, *, family: socket.AddressFamily = socket.AF_INET
+    ) -> VerisureHub:
+        """Create client (VerisureHub) on Home Assistant's client for *family*.
+
+        IPv4 by default, for the reason given in ``_login_ipv4_then_any``: no
+        supported country's endpoint has an IPv6 address, so the IPv6 half of
+        the default lookup can only ever come back empty, and on some networks
+        it fails the whole lookup (issue #606). ``_login_with_family_fallback``
+        rebuilds on ``AF_UNSPEC`` if that attempt cannot reach the network.
+
+        The client belongs to Home Assistant, which caches one per family and
+        closes them at shutdown, so this flow never releases it.
+        """
+
+        if self.config[CONF_PASSWORD] is None:
+            raise ValueError(
+                "Invalid internal state. Called without either password or token"
+            )
+
+        self.hub = VerisureHub(
+            self.config,
+            None,
+            async_get_clientsession(self.hass, family=family),
+            self.hass,
+        )
+        # This flow built the hub, so the IPv4 fallback may rebuild it;
+        # _borrow_session clears this flag again.
+        self._owns_hub = True
+        return self.hub
+
+    async def _login_with_family_fallback(self) -> None:
+        """Log the flow's hub in over IPv4, falling back to both families.
+
+        Shares setup's ``_login_ipv4_then_any``; the flow needs the fallback as
+        much as setup does, because this login is what stands between an affected
+        user and having an entry at all (issue #606). The fallback rebuilds only
+        a hub this flow owns: a hub borrowed from a running session is shared
+        with the entries or other setup dialogs holding it, so it is signed in on
+        its existing family and never swapped out (``rebuild=None``, so the
+        connection error just propagates).
+        """
+        assert self.hub is not None
+
+        # The shared helper passes which attempt this is; the flow signs in the
+        # same way either way (it maps no errors), so it is intentionally unused.
+        async def login(hub: VerisureHub, _first: bool) -> None:
+            await hub.login()
+
+        rebuild = (
+            (lambda: self._create_client(family=socket.AF_UNSPEC))
+            if self._owns_hub
+            else None
+        )
+        self.hub = await _login_ipv4_then_any(self.hub, login, rebuild)
+
+    async def async_step_phone_list(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Show the list of phones for the OTP challenge."""
+        if user_input is None:
+            return await self._restart_sign_in()
+        phone_index: int = -1
+        selected_phone_key = user_input.get("phones", "")
+
+        assert self.otp_challenge is not None
+        assert self.hub is not None
+        otp_phones = self.otp_challenge[1] or []
+        try:
+            index_str = selected_phone_key.split("_")[0]
+            list_index = int(index_str)
+            if 0 <= list_index < len(otp_phones):
+                phone_index = otp_phones[list_index].id
+        except (ValueError, IndexError):
+            for phone_item in otp_phones:
+                if phone_item.phone in selected_phone_key:
+                    phone_index = phone_item.id
+                    break
+
+        if phone_index < 0:
+            return await self._start_2fa_flow()
+
+        try:
+            await self.hub.send_opt(self.otp_challenge[0] or "", phone_index)
+        except VerisureOwaError:
+            return await self._show_2fa_error("otp_send_failed")
+
+        return self.async_show_form(
+            step_id="otp_challenge",
+            data_schema=vol.Schema({vol.Required(CONF_CODE): str}),
+        )
+
+    async def async_step_otp_challenge(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Last step of the OTP challenge."""
+        if user_input is None:
+            return await self._restart_sign_in()
+        with self._sign_in_running():
+            return await self._check_otp_code(user_input)
+
+    async def _check_otp_code(
+        self, user_input: dict[str, Any]
+    ) -> config_entries.ConfigFlowResult:
+        assert self.hub is not None
+        assert self.otp_challenge is not None
+        try:
+            result = await self.hub.send_sms_code(
+                self.otp_challenge[0] or "", user_input[CONF_CODE]
+            )
+        except VerisureOwaError as err:
+            # Check if OTP expired (auth-code 10002) — restart 2FA to get new code
+            if self._is_otp_expired(err):
+                return await self._show_2fa_error("otp_expired")
+            return self._ask_for_the_code_again()
+        except Exception as err:  # pylint: disable=broad-exception-caught
+            _LOGGER.error(
+                "send_sms_code raised unexpected %s: %s", type(err).__name__, err
+            )
+            return self._ask_for_the_code_again()
+        # If validate_device returns a challenge hash, the code was wrong —
+        # the API re-issued a challenge instead of completing authentication.
+        otp_hash, _phones = result
+        if otp_hash is not None:
+            return self._ask_for_the_code_again()
+        # MFA may succeed without returning a token (hash: null).
+        # finish_setup() will call login() to obtain it.
+        if self._reauth_entry is not None:
+            return await self._finish_reauth()
+        return await self.finish_setup()
+
+    def _ask_for_the_code_again(self) -> config_entries.ConfigFlowResult:
+        # Another code would finish the sign-in this submission started
+        # before another dialog saved, replacing the newer one.
+        if self.overtaken_reason:
+            return self.async_abort(reason=self.overtaken_reason)
+        return self.async_show_form(
+            step_id="otp_challenge",
+            data_schema=vol.Schema({vol.Required(CONF_CODE): str}),
+            errors={"base": "invalid_otp"},
+        )
+
+    async def _restart_sign_in(self) -> config_entries.ConfigFlowResult:
+        """Show the dialog's first form again.
+
+        Reopening a closed dialog asks for its current step with no input.
+        Starting over lets the user ask for a new code, e.g. one that never
+        arrived.
+        """
+        if self._reauth_entry is not None:
+            return await self.async_step_reauth_confirm()
+        return self.async_show_form(
+            step_id="user", data_schema=self._user_schema(self.config)
+        )
+
+    def _user_schema(self, defaults: dict[str, Any] | None = None) -> vol.Schema:
+        """Build the credentials form schema with optional defaults."""
+        d = defaults or {}
+        ha_country = self.hass.config.country
+        default_country = d.get(
+            CONF_COUNTRY, ha_country if ha_country in COUNTRY_CODES else "ES"
+        )
+        return vol.Schema(
+            {
+                vol.Required(CONF_COUNTRY, default=default_country): CountrySelector(
+                    CountrySelectorConfig(countries=COUNTRY_CODES)
+                ),
+                vol.Required(CONF_USERNAME, default=d.get(CONF_USERNAME, "")): str,
+                vol.Required(CONF_PASSWORD): str,
+                vol.Optional(
+                    CONF_KEEP_PASSWORD, default=d.get(CONF_KEEP_PASSWORD, False)
+                ): bool,
+            }
+        )
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Step 1: Country, username, password, 2FA toggle."""
+        if user_input is None:
+            return self.async_show_form(step_id="user", data_schema=self._user_schema())
+
+        self.config = dict(user_input)
+
+        self.config[CONF_DELAY_CHECK_OPERATION] = DEFAULT_DELAY_CHECK_OPERATION
+        self.config[CONF_DEVICE_INDIGITALL] = ""
+        self.config[CONF_ENTRY_ID] = ""
+        username = self.config[CONF_USERNAME]
+        session = self.hass.data.get(DOMAIN, {}).get("sessions", {}).get(username)
+        if session is not None and not self.config.get(CONF_KEEP_PASSWORD):
+            # Unticked, the account's running session is reused: a new login
+            # would invalidate it. Held before finish_setup awaits: the last
+            # entry unloading meanwhile would otherwise drop the session.
+            self._borrow_session(username, session)
+        else:
+            # A password to keep is checked by signing in with it, which
+            # finish_setup then makes the account's session.
+            if session is not None:
+                self._use_session_device_ids(session)
+            else:
+                uuid = generate_uuid()
+                self.config[CONF_DEVICE_ID] = uuid
+                self.config[CONF_UNIQUE_ID] = uuid
+            self.hub = self._create_client()
+        return await self.finish_setup()
+
+    async def async_step_reauth(
+        self, entry_data: dict[str, Any]
+    ) -> config_entries.ConfigFlowResult:
+        """Handle reauth when ConfigEntryAuthFailed is raised."""
+        self._reauth_entry = self.hass.config_entries.async_get_entry(
+            self.context["entry_id"]  # type: ignore[typeddict-item]
+        )
+        assert self._reauth_entry is not None
+        self.config = dict(entry_data)
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Show reauth form and handle credential re-entry."""
+        return await self._sign_in_again(user_input)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Sign an entry in again from its menu, whether or not it needs reauth."""
+        if self._reauth_entry is None:
+            self._reauth_entry = self._get_reconfigure_entry()
+            self.config = dict(self._reauth_entry.data)
+        return await self._sign_in_again(user_input)
+
+    async def _sign_in_again(
+        self, user_input: dict[str, Any] | None
+    ) -> config_entries.ConfigFlowResult:
+        """Shared by reauth and reconfigure: sign in, then keep the new token."""
+        assert self._reauth_entry is not None
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            self.config[CONF_PASSWORD] = user_input[CONF_PASSWORD]
+            self.config[CONF_KEEP_PASSWORD] = bool(
+                user_input.get(CONF_KEEP_PASSWORD, False)
+            )
+            self.config[CONF_USERNAME] = user_input.get(
+                CONF_USERNAME, self._reauth_entry.data.get(CONF_USERNAME, "")
+            )
+
+            # Preserve existing device IDs from the entry being signed in again
+            self.config[CONF_DEVICE_ID] = self._reauth_entry.data.get(
+                CONF_DEVICE_ID, generate_uuid()
+            )
+            self.config[CONF_UNIQUE_ID] = self._reauth_entry.data.get(
+                CONF_UNIQUE_ID, self.config[CONF_DEVICE_ID]
+            )
+            self.config.setdefault(
+                CONF_DEVICE_INDIGITALL,
+                self._reauth_entry.data.get(CONF_DEVICE_INDIGITALL, ""),
+            )
+            self.config.setdefault(
+                CONF_DELAY_CHECK_OPERATION, DEFAULT_DELAY_CHECK_OPERATION
+            )
+            self.config.setdefault(CONF_ENTRY_ID, "")
+            # The hub's login() prefers a saved refresh token over the password,
+            # so with the entry's token it would accept any password typed here.
+            self.config.pop(CONF_REFRESH_TOKEN, None)
+
+            with self._sign_in_running():
+                self.hub = self._create_client()
+                try:
+                    await self._login_with_family_fallback()
+                except TwoFactorRequiredError:
+                    return await self._start_2fa_flow()
+                except AccountBlockedError:
+                    errors["base"] = "account_blocked"
+                except AuthenticationError:
+                    errors["base"] = "invalid_auth"
+                except VerisureOwaError:
+                    errors["base"] = "cannot_connect"
+                else:
+                    return await self._finish_reauth()
+
+        return self._reauth_form(errors)
+
+    def _reauth_form(
+        self, errors: dict[str, str] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        assert self._reauth_entry is not None
+        username = self._reauth_entry.data.get(CONF_USERNAME, "")
+        # Starts as the entry's choice; after a failed submission, the one just made.
+        keep_password = bool(self.config.get(CONF_KEEP_PASSWORD, False))
+        return self.async_show_form(
+            step_id=(
+                "reconfigure"
+                if self.source == config_entries.SOURCE_RECONFIGURE
+                else "reauth_confirm"
+            ),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_USERNAME, default=username): str,
+                    vol.Required(CONF_PASSWORD): str,
+                    vol.Optional(CONF_KEEP_PASSWORD, default=keep_password): bool,
+                }
+            ),
+            errors=errors or {},
+        )
+
+    async def _finish_reauth(self) -> config_entries.ConfigFlowResult:
+        """Capture a fresh refresh token and reload; the supplied password is
+        kept only on entries whose box is ticked."""
+        assert self._reauth_entry is not None
+        assert self.hub is not None
+        # Checked again under the account lock; here, before the checks
+        # below judge this sign-in against the entry the other dialog saved.
+        if self.overtaken_reason:
+            return self.async_abort(reason=self.overtaken_reason)
+        refresh_token = self.hub.get_refresh_token()
+        # Without a refresh token the entry would be left unauthenticatable.
+        # Leave the existing entry data untouched so the user can sign in again.
+        if not refresh_token:
+            _LOGGER.error(
+                "Sign-in succeeded but no refresh token was returned; "
+                "leaving existing entry unchanged"
+            )
+            return self.async_abort(reason="no_refresh_token")
+        username = self.config[CONF_USERNAME]
+        installation = self._reauth_entry.data.get(CONF_INSTALLATION)
+        old_username = self._reauth_entry.data.get(CONF_USERNAME, "")
+        switched = username != old_username
+        if installation and switched:
+            # Another account keeps the entry's installation number; one that
+            # cannot see it would leave the entry with no devices.
+            try:
+                installations = await self.hub.client.list_installations()
+            except VerisureOwaError:
+                return self._reauth_form({"base": "cannot_connect"})
+            if all(inst.number != installation for inst in installations):
+                return self.async_abort(
+                    reason="installation_not_on_account",
+                    description_placeholders={"number": installation},
+                )
+            _store_installations_cache(self.hass, username, installations)
+        unique_id = self._reauth_entry.unique_id
+        # Home Assistant before 2025.4 also counts the entry's own pending
+        # reauth dialog as in progress, which would end a Reconfigure opened
+        # beside it; this applies the later versions' rule on all of them.
+        if unique_id is not None and any(
+            flow.get("context", {}).get("source") != config_entries.SOURCE_REAUTH
+            for flow in self._async_in_progress(
+                include_uninitialized=True, match_context={"unique_id": unique_id}
+            )
+        ):
+            return self.async_abort(reason="already_in_progress")
+        await self.async_set_unique_id(unique_id, raise_on_progress=False)
+        # Setup reuses the account's running session rather than a stored
+        # token, so this hub replaces that session and every entry on the
+        # account reloads onto it. Nothing below awaits until the reloads, so
+        # no setup or renewal can come in between.
+        try:
+            async with _account_lock(self.hass, username):
+                if self.overtaken_reason:
+                    return self.async_abort(reason=self.overtaken_reason)
+                registered = _replace_account_session(self.hass, username, self.hub)
+                # Held until the reloads return, not until the flow is removed:
+                # Home Assistant 2025.5 and later abort a reauth flow at the start
+                # of its entry's reload, which would drop this session before the
+                # reload's setup could join it.
+                _take_session_hold(registered, self._session_holder)
+                self._save_reauth_entry(username, installation, switched, refresh_token)
+                account_entries = self._move_account_onto_sign_in(
+                    username, refresh_token, besides=self._reauth_entry
+                )
+                if switched:
+                    _sync_kept_password(self.hass, old_username)
+            # Home Assistant before 2025.5 leaves the entry's reauth dialog open
+            # through the reload; submitted later, it would replace this sign-in.
+            for flow in list(
+                self._reauth_entry.async_get_active_flows(
+                    self.hass, {config_entries.SOURCE_REAUTH}
+                )
+            ):
+                if flow["flow_id"] != self.flow_id:
+                    self.hass.config_entries.flow.async_abort(flow["flow_id"])
+            # The reload below runs no setup for a disabled entry.
+            _async_update_duplicate_entry_issues(self.hass)
+            await self._reload_onto_sign_in(
+                username, (self._reauth_entry, *account_entries)
+            )
+        finally:
+            # Also reached by an overtaken dialog, which took no hold; its key
+            # is then on no session and nothing is released.
+            _release_flow_hold(self.hass, username, self._session_holder)
+            # Home Assistant 2025.5 and later close a reauth dialog as its
+            # entry's reload starts, so the clean-up check its closing ran saw
+            # this hold; a disabled entry sets nothing up to take over.
+            self.hass.async_create_task(_async_teardown_domain_if_unused(self.hass))
+        if self.source == config_entries.SOURCE_RECONFIGURE:
+            return self.async_abort(reason="reconfigure_successful")
+        return self.async_abort(reason="reauth_successful")
+
+    def _move_account_onto_sign_in(
+        self,
+        username: str,
+        refresh_token: str,
+        *,
+        besides: config_entries.ConfigEntry | None = None,
+    ) -> list[config_entries.ConfigEntry]:
+        """Save this dialog's sign-in on the account's entries other than
+        ``besides``, and return them to be reloaded onto it.
+
+        Called under the account lock, once this hub is the account's session.
+        """
+        account_entries = [
+            entry
+            for entry in self.hass.config_entries.async_entries(DOMAIN)
+            if entry is not besides and entry.data.get(CONF_USERNAME) == username
+        ]
+        for entry in account_entries:
+            new_data = {**entry.data, CONF_REFRESH_TOKEN: refresh_token}
+            # The password just proven replaces a kept one, which a
+            # password change would otherwise leave stale.
+            if new_data.get(CONF_KEEP_PASSWORD):
+                new_data[CONF_PASSWORD] = self.config[CONF_PASSWORD]
+            else:
+                new_data.pop(CONF_PASSWORD, None)
+            self.hass.config_entries.async_update_entry(entry, data=new_data)
+        for flow_id, config in setup_passwords(self.hass).items():
+            if flow_id != self.flow_id and config[CONF_USERNAME] == username:
+                config[CONF_PASSWORD] = self.config[CONF_PASSWORD]
+        # Unticked, the user said no: the password just typed goes too.
+        _sync_kept_password(
+            self.hass,
+            username,
+            forget_unkept=not self.config.get(CONF_KEEP_PASSWORD),
+        )
+        self._overtake_sign_ins_in_flight(username)
+        return account_entries
+
+    async def _reload_onto_sign_in(
+        self, username: str, entries: Iterable[config_entries.ConfigEntry]
+    ) -> None:
+        """Reload ``entries`` onto the session this dialog just registered."""
+        # This sign-in proves the new token; refusals of the one it replaces
+        # must not count against it, nor failures to reach Verisure, and
+        # there is nothing left to sign in again (the reload sets nothing
+        # up for a disabled entry).
+        _clear_setup_refresh_refusals(self.hass, username)
+        _clear_setup_unreachable(self.hass, username)
+        _clear_sign_in_issues(self.hass, username)
+        for entry in entries:
+            await self.hass.config_entries.async_reload(entry.entry_id)
+
+    def _sign_ins_in_flight(self) -> dict[FlowHandler, str]:
+        """The sign-in-again dialogs running a step that can save, with the
+        entry each signs in again.
+
+        A save marks the others on the dialogs themselves, so the mark lasts
+        however long their step takes to reach the check.
+        """
+        return self.hass.data.setdefault(_SIGN_INS_IN_FLIGHT, {})
+
+    def _overtake_sign_ins_in_flight(self, username: str) -> None:
+        """Stop the other running sign-ins for this entry or this account.
+
+        Entries on one account share its session, so a sign-in started
+        before this save, for another of its installations, would replace the
+        one just saved.
+        """
+        entry_id = self._reauth_entry.entry_id if self._reauth_entry else None
+        for flow, flow_entry_id in self._sign_ins_in_flight().items():
+            if flow is self:
+                continue
+            if flow_entry_id == entry_id:
+                flow.overtaken_reason = "signed_in_again_elsewhere"
+            elif flow.config.get(CONF_USERNAME) == username:
+                flow.overtaken_reason = (
+                    flow.overtaken_reason or "account_signed_in_again_elsewhere"
+                )
+
+    @contextmanager
+    def _sign_in_running(self) -> Iterator[None]:
+        """Keep this dialog on the list while a step that can save runs.
+
+        Only while the step runs, not until the dialog closes: Home Assistant
+        2025.5 and later close a reauth dialog when its entry reloads, and
+        ``_finish_reauth`` closes it on earlier versions, but a step already
+        running carries on.
+        """
+        if self._reauth_entry is None:
+            yield
+            return
+        running = self._sign_ins_in_flight()
+        self.overtaken_reason = None
+        running[self] = self._reauth_entry.entry_id
+        try:
+            yield
+        finally:
+            running.pop(self, None)
+
+    def _save_reauth_entry(
+        self,
+        username: str,
+        installation: str | None,
+        switched: bool,
+        refresh_token: str,
+    ) -> None:
+        assert self._reauth_entry is not None
+        new_data = {**self._reauth_entry.data}
+        new_data[CONF_USERNAME] = username
+        new_data[CONF_KEEP_PASSWORD] = bool(self.config.get(CONF_KEEP_PASSWORD))
+        if new_data[CONF_KEEP_PASSWORD]:
+            new_data[CONF_PASSWORD] = self.config[CONF_PASSWORD]
+        else:
+            new_data.pop(CONF_PASSWORD, None)
+        new_data[CONF_REFRESH_TOKEN] = refresh_token
+        unique_id: str | UndefinedType = UNDEFINED
+        if installation and switched:
+            new_uid = _unique_id_for(username, installation)
+            # Home Assistant reports taking another entry's ID as an
+            # integration bug.
+            if (
+                self.hass.config_entries.async_entry_for_domain_unique_id(
+                    DOMAIN, new_uid
+                )
+                is None
+            ):
+                unique_id = new_uid
+        self.hass.config_entries.async_update_entry(
+            self._reauth_entry, data=new_data, unique_id=unique_id
+        )
+
+    async def _start_2fa_flow(
+        self, errors: dict[str, str] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Call validate_device and show phone selection form."""
+        assert self.hub is not None
+        try:
+            otp_result = await self.hub.validate_device()
+        except VerisureOwaError as err:
+            _LOGGER.error("2FA device validation failed: %s", err)
+            # The setup form would go on to create a new entry, not update this one.
+            if self._reauth_entry is not None:
+                return self._reauth_form({"base": "cannot_connect"})
+            return self.async_show_form(
+                step_id="user",
+                data_schema=self._user_schema(self.config),
+                errors={"base": "cannot_connect"},
+            )
+        # The code step would finish the sign-in this submission started
+        # before another dialog saved, replacing the newer one.
+        if self.overtaken_reason:
+            return self.async_abort(reason=self.overtaken_reason)
+        self.otp_challenge = otp_result
+        otp_phones = otp_result[1] or []
+        phone_options = [
+            {"value": f"{i}_{phone.phone}", "label": phone.phone}
+            for i, phone in enumerate(otp_phones)
+        ]
+        return self.async_show_form(
+            step_id="phone_list",
+            data_schema=vol.Schema(
+                {"phones": selector({"select": {"options": phone_options}})}
+            ),
+            errors=errors,
+        )
+
+    @staticmethod
+    def _is_otp_expired(err: VerisureOwaError) -> bool:
+        """Check if a VerisureOwaError indicates an expired OTP (auth-code 10002)."""
+        body = err.response_body
+        if body is None:
+            return False
+        try:
+            return body["errors"][0]["data"].get("auth-code") == "10002"
+        except (IndexError, KeyError, TypeError):
+            return False
+
+    async def _show_2fa_error(self, error_key: str) -> config_entries.ConfigFlowResult:
+        """Re-show phone list form with an error."""
+        return await self._start_2fa_flow(errors={"base": error_key})
+
+    async def finish_setup(self) -> config_entries.ConfigFlowResult:
+        """Login, discover installations, detect peri, advance to options."""
+        assert self.hub is not None
+        username = self.config[CONF_USERNAME]
+        try:
+            await self._sign_in_and_hold_session(username)
+        except TwoFactorRequiredError:
+            return await self._start_2fa_flow()
+        except AccountBlockedError:
+            return self.async_show_form(
+                step_id="user",
+                data_schema=self._user_schema(self.config),
+                errors={"base": "account_blocked"},
+            )
+        except AuthenticationError:
+            return self.async_show_form(
+                step_id="user",
+                data_schema=self._user_schema(self.config),
+                errors={"base": "invalid_auth"},
+            )
+        except VerisureOwaError:
+            return self.async_show_form(
+                step_id="user",
+                data_schema=self._user_schema(self.config),
+                errors={"base": "cannot_connect"},
+            )
+
+        try:
+            installations = await self.hub.client.list_installations()
+        except VerisureOwaError:
+            return self.async_show_form(
+                step_id="user",
+                data_schema=self._user_schema(self.config),
+                errors={"base": "cannot_connect"},
+            )
+        _store_installations_cache(self.hass, username, installations)
+
+        configured_ids = {
+            entry.data.get(CONF_INSTALLATION) for entry in self._async_current_entries()
+        }
+        available = [
+            inst for inst in installations if inst.number not in configured_ids
+        ]
+
+        if not available:
+            return self.async_abort(reason="already_configured")
+
+        if len(available) == 1:
+            return await self._select_installation(available[0])
+
+        self._available_installations = available
+        return await self.async_step_select_installation()
+
+    async def _select_installation(
+        self, installation: Installation
+    ) -> config_entries.ConfigFlowResult:
+        """Set installation, call get_services, detect peri, advance to options."""
+        self.config[CONF_INSTALLATION] = installation.number
+        self._selected_installation = installation
+
+        assert self.hub is not None
+        try:
+            services = await self.hub.get_services(
+                installation, priority=ApiQueue.FOREGROUND
+            )
+        except VerisureOwaError as err:
+            _LOGGER.error(
+                "Failed to fetch services for %s: %s", installation.number, err
+            )
+            return self.async_show_form(
+                step_id="user",
+                data_schema=self._user_schema(self.config),
+                errors={"base": "cannot_connect"},
+            )
+        self.hass.data.setdefault(DOMAIN, {})
+        self.hass.data[DOMAIN]["cached_services"] = {
+            "data": {installation.number: services},
+            "time": time.monotonic(),
+        }
+
+        capabilities = self.hub.client.get_supported_commands(installation.number)
+        self._has_peri = detect_peri(installation, services, capabilities)
+        self._has_annex = detect_annex(capabilities)
+        _LOGGER.debug(
+            "Perimeter detected for %s: %s", installation.number, self._has_peri
+        )
+        # Publish the detection result so the options flow can render the
+        # right toggles even if the user opens it before async_setup_entry
+        # has finished storing the alarm coordinator under entry.entry_id.
+        _publish_flow_capabilities(
+            self.hass, installation.number, self._has_peri, self._has_annex
+        )
+
+        return await self.async_step_options()
+
+    async def async_step_select_installation(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Step 2: Let user pick which installation to configure."""
+        if user_input is not None:
+            selected_number = user_input[CONF_INSTALLATION]
+            for inst in self._available_installations:
+                if inst.number == selected_number:
+                    return await self._select_installation(inst)
+            return self.async_abort(reason="unknown_installation")
+
+        install_options = [
+            {"value": inst.number, "label": inst.alias}
+            for inst in self._available_installations
+        ]
+        return self.async_show_form(
+            step_id="select_installation",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_INSTALLATION): selector(
+                        {"select": {"options": install_options}}
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_options(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Step 3: PIN, scan interval, notifications, sub-panel toggles."""
+        if user_input is not None:
+            user_input = _flatten_sections(user_input)
+            # Fresh install — nothing pre-filled the field, so there is no
+            # existing PIN to carry forward and no sentinel to interpret.
+            user_input[CONF_CODE_HASH], user_input[CONF_CODE_IS_NUMERIC] = encode_pin(
+                user_input.pop(CONF_CODE, DEFAULT_CODE)
+            )
+            # Toggles belong on entry.options, not entry.data.
+            for key in PANEL_OPTION_KEYS:
+                if key in user_input:
+                    self._panel_options[key] = user_input.pop(key)
+            self._options_data = user_input
+            return await self.async_step_mappings()
+
+        notify_options = _get_notify_options(self.hass)
+        extra_fields = _build_panel_extra_fields(
+            has_peri=self._has_peri, has_annex=self._has_annex
+        )
+
+        schema = _build_settings_schema(
+            {
+                CONF_CODE_HASH: None,
+                CONF_CODE_ARM_REQUIRED: DEFAULT_CODE_ARM_REQUIRED,
+                CONF_LOCK_CODE_REQUIRED: DEFAULT_LOCK_CODE_REQUIRED,
+            },
+            notify_options,
+            extra_fields=extra_fields,
+        )
+        install_name = (
+            self._selected_installation.alias if self._selected_installation else ""
+        )
+        return self.async_show_form(
+            step_id="options",
+            data_schema=schema,
+            description_placeholders={"installation_name": install_name},
+        )
+
+    async def async_step_mappings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Step 4: Alarm state mappings, then create entry."""
+        if user_input is not None:
+            self.config.update(self._options_data)
+            self.config.update(_normalize_mapping_input(user_input))
+            assert self._selected_installation is not None
+            return await self._create_entry_for_installation(
+                self._selected_installation
+            )
+
+        defaults = PERI_DEFAULTS if self._has_peri else STD_DEFAULTS
+        select_options = _mapping_select_options(
+            has_peri=self._has_peri, has_annex=self._has_annex
+        )
+        select_cfg = {"select": {"options": select_options, "mode": "dropdown"}}
+
+        schema = vol.Schema(
+            {
+                _mapping_field(CONF_MAP_HOME, defaults.get(CONF_MAP_HOME)): selector(
+                    select_cfg
+                ),
+                _mapping_field(CONF_MAP_AWAY, defaults.get(CONF_MAP_AWAY)): selector(
+                    select_cfg
+                ),
+                _mapping_field(CONF_MAP_NIGHT, defaults.get(CONF_MAP_NIGHT)): selector(
+                    select_cfg
+                ),
+                _mapping_field(
+                    CONF_MAP_VACATION, defaults.get(CONF_MAP_VACATION)
+                ): selector(select_cfg),
+                _mapping_field(
+                    CONF_MAP_CUSTOM, defaults.get(CONF_MAP_CUSTOM)
+                ): selector(select_cfg),
+            }
+        )
+        return self.async_show_form(
+            step_id="mappings",
+            data_schema=schema,
+            description_placeholders={
+                "subpanels_note": _subpanels_note(
+                    self.hass, has_peri=self._has_peri, has_annex=self._has_annex
+                )
+            },
+        )
+
+    @property
+    def _session_holder(self) -> str:
+        """This flow's key in a session's holders; never an entry id's shape."""
+        return _flow_session_holder(self.flow_id)
+
+    async def _sign_in_and_hold_session(self, username: str) -> None:
+        """Sign in unless the account's session is already running, and hold it.
+
+        With a password to keep, the dialog signs in anyway, to check it, and
+        its sign-in replaces the running session.
+
+        A dialog that might sign in from scratch does so under the account
+        lock, which entry setup also takes, so an entry and this dialog never
+        both sign in to the account: whichever comes second uses the session
+        the first registered. A borrowed session is already held and signs in
+        again without the lock, so an entry unloading meanwhile never waits on
+        this dialog.
+
+        ``_track_setup_password`` runs as soon as the sign-in proves the
+        password, before anything else is awaited: a newer sign-in or a
+        rejection from then on must reach this dialog's copy.
+        """
+        account_entries: list[config_entries.ConfigEntry] | None = None
+        if self._owns_hub:
+            async with _account_lock(self.hass, username):
+                sessions = self.hass.data[DOMAIN].setdefault("sessions", {})
+                session = sessions.get(username)
+                if session is not None and self.config.get(CONF_KEEP_PASSWORD):
+                    account_entries = await self._sign_in_in_place_of(username, session)
+                    self._track_setup_password()
+                elif session is not None:
+                    # An entry or another dialog signed in while this dialog
+                    # waited for the lock or for a 2FA code.
+                    self._borrow_session(username, session)
+                else:
+                    await self._sign_in_if_needed()
+                    self._track_setup_password()
+                    assert self.hub is not None
+                    sessions[username] = _new_session_record(self.hub)
+                    # The flow holds the session until it ends; an entry it
+                    # creates takes its own hold during setup, which HA runs
+                    # before removing the flow.
+                    self._hold_flow_session(username, sessions[username])
+                    return
+            if account_entries is not None:
+                await self._reload_onto_sign_in(username, account_entries)
+                return
+        await self._sign_in_if_needed()
+        self._track_setup_password()
+
+    async def _sign_in_in_place_of(
+        self, username: str, session: dict[str, Any]
+    ) -> list[config_entries.ConfigEntry] | None:
+        """Sign in with the typed password and make this hub the account's
+        session in place of ``session``; return the entries to reload, or
+        None when the sign-in brought no refresh token and nothing changed.
+
+        Called under the account lock. Replaced here, not when the entry is
+        created: the new sign-in has already made the running session's token
+        useless, so the running entries move onto it even if the dialog is
+        then abandoned. A failed sign-in leaves ``session`` untouched.
+        """
+        if self._use_session_device_ids(session):
+            self._create_client()
+        await self._sign_in_if_needed()
+        assert self.hub is not None
+        refresh_token = self.hub.get_refresh_token()
+        # Creating the entry refuses a sign-in with no refresh token; the
+        # running entries must not be handed an empty one meanwhile.
+        if not refresh_token:
+            return None
+        registered = _replace_account_session(self.hass, username, self.hub)
+        self._hold_flow_session(username, registered)
+        return self._move_account_onto_sign_in(username, refresh_token)
+
+    async def _sign_in_if_needed(self) -> None:
+        assert self.hub is not None
+        if self.hub.get_authentication_token() is None:
+            await self._login_with_family_fallback()
+
+    def _borrow_session(self, username: str, session: dict[str, Any]) -> None:
+        """Use and hold the account's running session instead of signing in."""
+        self._hold_flow_session(username, session)
+        hub: VerisureHub = session["hub"]
+        self.hub = hub
+        # Borrowed, not built here: the fallback must not rebuild it (entries
+        # or other setup dialogs hold it).
+        self._owns_hub = False
+        self.config[CONF_DEVICE_ID] = hub.config[CONF_DEVICE_ID]
+        self.config[CONF_UNIQUE_ID] = hub.config[CONF_UNIQUE_ID]
+        self.config[CONF_DEVICE_INDIGITALL] = hub.config.get(CONF_DEVICE_INDIGITALL, "")
+
+    def _use_session_device_ids(self, session: dict[str, Any]) -> bool:
+        """Sign in as the running session's device; True if that changed them."""
+        hub_config = session["hub"].config
+        ids = {
+            CONF_DEVICE_ID: hub_config[CONF_DEVICE_ID],
+            CONF_UNIQUE_ID: hub_config[CONF_UNIQUE_ID],
+            CONF_DEVICE_INDIGITALL: hub_config.get(CONF_DEVICE_INDIGITALL, ""),
+        }
+        changed = any(self.config.get(key) != value for key, value in ids.items())
+        self.config.update(ids)
+        return changed
+
+    def _hold_flow_session(self, username: str, session: dict[str, Any]) -> None:
+        """Hold ``session``, first releasing any other one this flow holds.
+
+        The user can go back to the first step and sign in to another account;
+        the earlier account's session is let go once the flow has signed in to
+        or borrowed the other one's, rather than stranded.
+        """
+        if self._held_account not in (None, username):
+            self._release_flow_session()
+        _take_session_hold(session, self._session_holder)
+        self._held_account = username
+
+    def _follow_replaced_session(self) -> None:
+        """Move to the account's registered session if a reauth or Reconfigure
+        replaced the one this flow signed in with or borrowed: the entry it
+        creates joins that one, so it must store that one's login and ids."""
+        if self._held_account is None:
+            return
+        sessions = self.hass.data.get(DOMAIN, {}).get("sessions", {})
+        current = sessions.get(self._held_account)
+        if current is not None and current["hub"] is not self.hub:
+            self._borrow_session(self._held_account, current)
+
+    def _track_setup_password(self) -> None:
+        """Count a ticked dialog's proven password as one more stored copy of
+        the account's kept password until the dialog creates its entry.
+
+        The entry is created pages later. Meanwhile a newer sign-in to the
+        account replaces this copy as it does the entries' copies, and
+        Verisure rejecting the password removes it, so the entry never stores
+        a password the account has moved on from.
+        """
+        if self.config.get(CONF_KEEP_PASSWORD):
+            self.hass.data[DOMAIN].setdefault("setup_passwords", {})[self.flow_id] = (
+                self.config
+            )
+        else:
+            setup_passwords(self.hass).pop(self.flow_id, None)
+
+    def _release_flow_session(self) -> None:
+        """Release this flow's hold; the session goes once nobody holds it."""
+        if self._held_account is None:
+            return
+        username = self._held_account
+        self._held_account = None
+        _release_flow_hold(self.hass, username, self._session_holder)
+
+    @callback
+    def async_remove(self) -> None:
+        """Release the flow's session hold, then clean up if nothing else uses
+        the integration.
+
+        HA calls this on every way out of the flow: a returned or raised abort,
+        the user closing the dialog, and a created entry. On the last, HA has
+        already set the new entry up, so it holds the session and it is kept.
+        An open setup dialog keeps the integration set up even when it holds
+        nothing, so closing one may leave nothing using it; a Reconfigure
+        dialog counts as one. A reauth dialog does not count; its entry keeps
+        the integration set up while it waits.
+        """
+        setup_passwords(self.hass).pop(self.flow_id, None)
+        self._release_flow_session()
+        self.hass.async_create_task(_async_teardown_domain_if_unused(self.hass))
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> VerisureOptionsFlowHandler:
+        """Get the options flow for this handler."""
+        return VerisureOptionsFlowHandler()
+
+
+class VerisureOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle Verisure OWA options."""
+
+    def __init__(self) -> None:
+        """Initialize options flow."""
+        self._general_data: dict[str, Any] = {}
+        self._forget_password = False
+
+    def _get(self, key: str, default: Any = None) -> Any:
+        """Read current value from options, falling back to entry data."""
+        return self.config_entry.options.get(
+            key, self.config_entry.data.get(key, default)
+        )
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Step 1: General settings."""
+        if user_input is not None:
+            user_input = _flatten_sections(user_input)
+            # The box lives in entry data, not options.
+            self._forget_password = user_input.pop(CONF_KEEP_PASSWORD, True) is False
+            raw_code = user_input.pop(CONF_CODE, DEFAULT_CODE)
+            code_hash, code_is_numeric = _resolve_code_submission(
+                raw_code,
+                self._get(CONF_CODE_HASH, None),
+                self._get(CONF_CODE_IS_NUMERIC, False),
+            )
+            user_input[CONF_CODE_HASH] = code_hash
+            user_input[CONF_CODE_IS_NUMERIC] = code_is_numeric
+            self._general_data = user_input
+            return await self.async_step_mappings()
+
+        notify_options = _get_notify_options(self.hass)
+
+        # Capability-gated sub-panel toggles — resolve via the helper so the
+        # options dialog opened during async_setup_entry's get_services await
+        # (when the coordinator dict isn't yet under entry.entry_id) still
+        # picks up the published capabilities from the config flow.
+        has_peri, has_annex = _resolve_flow_capabilities(self.hass, self.config_entry)
+        opts = self.config_entry.options
+        extra_fields = _build_panel_extra_fields(
+            has_peri=has_peri,
+            has_annex=has_annex,
+            peri_default=opts.get(CONF_ENABLE_PERIMETER_PANEL, False),
+            annex_default=opts.get(CONF_ENABLE_ANNEX_PANEL, False),
+            interior_default=opts.get(CONF_ENABLE_INTERIOR_PANEL, False),
+        )
+
+        schema = _build_settings_schema(
+            {
+                CONF_CODE_HASH: self._get(CONF_CODE_HASH, None),
+                CONF_CODE_ARM_REQUIRED: self._get(
+                    CONF_CODE_ARM_REQUIRED, DEFAULT_CODE_ARM_REQUIRED
+                ),
+                CONF_LOCK_CODE_REQUIRED: self._get(
+                    CONF_LOCK_CODE_REQUIRED, DEFAULT_LOCK_CODE_REQUIRED
+                ),
+                CONF_NOTIFY_GROUP: self._get(CONF_NOTIFY_GROUP, ""),
+                CONF_FORCE_ARM_NOTIFICATIONS: self._get(
+                    CONF_FORCE_ARM_NOTIFICATIONS, DEFAULT_FORCE_ARM_NOTIFICATIONS
+                ),
+                CONF_AUTO_FORCE_ARM: self._get(
+                    CONF_AUTO_FORCE_ARM, DEFAULT_AUTO_FORCE_ARM
+                ),
+                CONF_SCAN_INTERVAL: self._get(
+                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                ),
+                CONF_DELAY_CHECK_OPERATION: self._get(
+                    CONF_DELAY_CHECK_OPERATION, DEFAULT_DELAY_CHECK_OPERATION
+                ),
+                CONF_OPERATION_POLL_TIMEOUT: self._get(
+                    CONF_OPERATION_POLL_TIMEOUT, DEFAULT_OPERATION_POLL_TIMEOUT
+                ),
+                CONF_ENABLE_ACTIVITY_POLLING: self._get(
+                    CONF_ENABLE_ACTIVITY_POLLING, DEFAULT_ENABLE_ACTIVITY_POLLING
+                ),
+            },
+            notify_options,
+            use_suggested=True,
+            extra_fields=extra_fields,
+            # Turning it on needs Reconfigure, where the password is typed.
+            keep_password_default=(
+                True if self.config_entry.data.get(CONF_KEEP_PASSWORD) else None
+            ),
+        )
+        return self.async_show_form(step_id="init", data_schema=schema)
+
+    def _save(self, data: dict[str, Any]) -> config_entries.ConfigFlowResult:
+        """Save the options and, if the box was unticked, forget the kept
+        password without signing in."""
+        if self._forget_password:
+            entry = self.config_entry
+            new_data = {**entry.data, CONF_KEEP_PASSWORD: False}
+            new_data.pop(CONF_PASSWORD, None)
+            self.hass.config_entries.async_update_entry(entry, data=new_data)
+            _sync_kept_password(
+                self.hass, entry.data[CONF_USERNAME], forget_unkept=True
+            )
+        return self.async_create_entry(title="", data=data)
+
+    async def async_step_mappings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Step 2: Alarm state mappings."""
+        if user_input is not None:
+            self._general_data = {
+                **self._general_data,
+                **_normalize_mapping_input(user_input),
+            }
+            return await self.async_step_lock_automations()
+
+        # Resolve via the helper so we read coordinator → published cache →
+        # False, matching the init step. Avoids the race where the user
+        # opens the dialog before async_setup_entry has stored the coord.
+        has_peri, has_annex = _resolve_flow_capabilities(self.hass, self.config_entry)
+
+        # Determine defaults for mapping dropdowns
+        defaults = PERI_DEFAULTS if has_peri else STD_DEFAULTS
+        options = dropdown_options(has_peri=has_peri, has_annex=has_annex)
+        valid_values = {state.value for state in options}
+
+        def _suggested_map(key: str) -> str | None:
+            """Return the value to pre-fill in the form, or None for blank.
+
+            An explicit empty string is a mapping the user deliberately
+            cleared (``_normalize_mapping_input`` records the cleared state as
+            ``""``): honour it as blank rather than resurrecting the per-mode
+            default, which would repopulate the field on every reopen and let
+            a subsequent save silently un-clear it.
+
+            Otherwise the saved value wins when it's still in the current
+            option set; failing that we fall back to the default. Pre-v5 saved
+            values of ``"not_used"`` (or anything else outside the dropdown)
+            collapse to the default, so the user sees a usable choice instead
+            of a stale unselectable one.
+            """
+            val = self._get(key)
+            if val == "":
+                return None
+            if val and val in valid_values:
+                return val
+            return defaults.get(key)
+
+        # Build dropdown options — only real values appear; clearing happens
+        # via the form's X (clear) button (HA omits the key from user_input,
+        # which ``_normalize_mapping_input`` surfaces as an explicit "" in
+        # entry.options so the update listener sees the diff).
+        select_options = _mapping_select_options(has_peri=has_peri, has_annex=has_annex)
+        select_cfg = {"select": {"options": select_options, "mode": "dropdown"}}
+
+        schema = vol.Schema(
+            {
+                _mapping_field(CONF_MAP_HOME, _suggested_map(CONF_MAP_HOME)): selector(
+                    select_cfg
+                ),
+                _mapping_field(CONF_MAP_AWAY, _suggested_map(CONF_MAP_AWAY)): selector(
+                    select_cfg
+                ),
+                _mapping_field(
+                    CONF_MAP_NIGHT, _suggested_map(CONF_MAP_NIGHT)
+                ): selector(select_cfg),
+                _mapping_field(
+                    CONF_MAP_VACATION, _suggested_map(CONF_MAP_VACATION)
+                ): selector(select_cfg),
+                _mapping_field(
+                    CONF_MAP_CUSTOM, _suggested_map(CONF_MAP_CUSTOM)
+                ): selector(select_cfg),
+            }
+        )
+        return self.async_show_form(
+            step_id="mappings",
+            data_schema=schema,
+            description_placeholders={
+                "subpanels_note": _subpanels_note(
+                    self.hass, has_peri=has_peri, has_annex=has_annex
+                )
+            },
+        )
+
+    async def async_step_lock_automations(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Step 3: Per-lock automation settings (lock-on-arm / disarm-on-unlock).
+
+        Renders one collapsible section per registered lock, each containing
+        per-circuit boolean checkboxes for the two automations. The persisted
+        shape (CONF_LOCK_AUTOMATIONS = {device_id: {lock_on_arm: [...],
+        unlock_disarms: [...]}}) is unchanged — the handler converts between
+        per-circuit booleans (UI) and circuit-name lists (storage).
+        """
+        registered_locks = await self._get_registered_locks()
+        if not registered_locks:
+            return self._save(self._general_data)
+
+        enabled_circuits = self._get_enabled_circuits()
+        # Preserve LOCK_CIRCUITS ordering so the UI is consistent.
+        enabled_circuit_list = [c for c in LOCK_CIRCUITS if c in enabled_circuits]
+
+        if user_input is not None:
+            new_map: dict[str, dict[str, list[str]]] = {}
+            for lk in registered_locks:
+                did = lk["device_id"]
+                section_data = user_input.get(f"lock__{did}", {}) or {}
+                new_map[did] = {
+                    "lock_on_arm": [
+                        c
+                        for c in enabled_circuit_list
+                        if section_data.get(f"lock_on_arm__{c}", False)
+                    ],
+                    "unlock_disarms": [
+                        c
+                        for c in enabled_circuit_list
+                        if section_data.get(f"unlock_disarms__{c}", False)
+                    ],
+                }
+            return self._save({**self._general_data, CONF_LOCK_AUTOMATIONS: new_map})
+
+        existing = self.config_entry.options.get(CONF_LOCK_AUTOMATIONS, {})
+
+        schema_dict: dict[Any, Any] = {}
+        placeholders: dict[str, str] = {}
+        for lk in registered_locks:
+            did = lk["device_id"]
+            saved = existing.get(did, {})
+            saved_arm = set(saved.get("lock_on_arm", []))
+            saved_unlock = set(saved.get("unlock_disarms", []))
+
+            section_fields: dict[Any, Any] = {}
+            for c in enabled_circuit_list:
+                section_fields[
+                    vol.Optional(f"lock_on_arm__{c}", default=c in saved_arm)
+                ] = bool
+            for c in enabled_circuit_list:
+                section_fields[
+                    vol.Optional(f"unlock_disarms__{c}", default=c in saved_unlock)
+                ] = bool
+
+            schema_dict[vol.Required(f"lock__{did}")] = section(
+                vol.Schema(section_fields),
+                {"collapsed": False},
+            )
+            placeholders[f"lock_alias_{did}"] = lk.get("alias") or did
+
+        return self.async_show_form(
+            step_id="lock_automations",
+            data_schema=vol.Schema(schema_dict),
+            description_placeholders=placeholders,
+        )
+
+    async def _get_registered_locks(self) -> list[dict[str, str]]:
+        """Return [{device_id, alias}] for each lock registered for this entry.
+
+        If the in-memory list is empty but the entry has a pending
+        ``lock_discovery_complete`` event (i.e. the installation has a lock
+        service and background discovery is still running), wait up to
+        ``LOCK_DISCOVERY_WAIT_TIMEOUT`` seconds for discovery to finish, then
+        re-read the list. Without this wait, opening options immediately
+        after adding an installation silently skips the Lock Automation step
+        even though a lock exists.
+        """
+        domain_entry = self.hass.data.get(DOMAIN, {}).get(
+            self.config_entry.entry_id, {}
+        )
+        registered = list(domain_entry.get("registered_locks", []))
+        if registered:
+            return registered
+
+        event = domain_entry.get("lock_discovery_complete")
+        if event is None or event.is_set():
+            return registered
+
+        try:
+            async with asyncio.timeout(LOCK_DISCOVERY_WAIT_TIMEOUT):
+                await event.wait()
+        except TimeoutError:
+            _LOGGER.warning(
+                "Lock discovery did not complete within %.1fs for entry %s; "
+                "skipping Lock Automation step",
+                LOCK_DISCOVERY_WAIT_TIMEOUT,
+                self.config_entry.entry_id,
+            )
+            return list(domain_entry.get("registered_locks", []))
+
+        return list(domain_entry.get("registered_locks", []))
+
+    def _get_enabled_circuits(self) -> set[str]:
+        """Return the set of circuit labels enabled on this installation.
+
+        Interior is always available — every installation has interior alarm.
+        The CONF_ENABLE_INTERIOR_PANEL flag controls whether a separate
+        sub-panel entity is exposed, not whether the circuit exists.
+        Perimeter and annex are gated on their explicit toggles.
+        """
+        opts = self.config_entry.options
+        enabled: set[str] = {CIRCUIT_INTERIOR}
+        if opts.get(CONF_ENABLE_PERIMETER_PANEL, False):
+            enabled.add(CIRCUIT_PERIMETER)
+        if opts.get(CONF_ENABLE_ANNEX_PANEL, False):
+            enabled.add(CIRCUIT_ANNEX)
+        return enabled

@@ -1,0 +1,992 @@
+"""VerisureHub and VerisureDevice classes for Verisure OWA integration."""
+
+import asyncio
+import base64
+import hashlib
+import logging
+from collections.abc import Callable
+from functools import partial
+from typing import Any
+
+from aiohttp import ClientSession
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import (
+    CONF_DEVICE_ID,
+    CONF_PASSWORD,
+    CONF_UNIQUE_ID,
+    CONF_USERNAME,
+)
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+
+from .api_queue import ApiQueue
+from .const import (
+    CONF_COUNTRY,
+    CONF_DELAY_CHECK_OPERATION,
+    CONF_DEVICE_INDIGITALL,
+    CONF_KEEP_PASSWORD,
+    CONF_OPERATION_POLL_TIMEOUT,
+    CONF_REFRESH_TOKEN,
+    DEFAULT_OPERATION_POLL_TIMEOUT,
+    DOMAIN,
+    PROJECT_URL,
+    SIGNAL_CAMERA_STATE,
+)
+from .log_filter import SensitiveDataFilter
+from .notification_translations import get_notification_strings
+from .verisure_owa_api import (
+    AccountBlockedError,
+    ApiDomains,
+    AuthenticationError,
+    CameraDevice,
+    Installation,
+    OperationStatus,
+    OtpPhone,
+    Service,
+    SmartLock,
+    SmartLockMode,
+    ThumbnailResponse,
+    VerisureOwaError,
+)
+from .verisure_owa_api.client import VerisureOwaClient
+from .verisure_owa_api.client._base import (
+    RefreshTokenSnapshot,
+    _token_fingerprint,
+)
+from .verisure_owa_api.exceptions import (
+    dead_refresh_token_signal,
+    is_account_blocked,
+    is_genuine_auth_failure,
+)
+from .verisure_owa_api.http_transport import HttpTransport
+
+_LOGGER = logging.getLogger(__name__)
+
+_SIGN_IN_ISSUE = "sign_in_again_"
+_RENEWAL_REFUSED_ISSUE = "renewal_refused_"
+_UNREACHABLE_ISSUE = "cannot_reach_verisure_"
+
+
+def _hashed_issue_id(prefix: str, key: str) -> str:
+    # Hashed: Home Assistant saves issue IDs, and the email must not be.
+    return prefix + hashlib.sha256(key.encode()).hexdigest()[:12]
+
+
+def _sign_in_issue_id(username: str) -> str:
+    return _hashed_issue_id(_SIGN_IN_ISSUE, username)
+
+
+def _renewal_refused_issue_id(username: str) -> str:
+    return _hashed_issue_id(_RENEWAL_REFUSED_ISSUE, username)
+
+
+def _unreachable_issue_id(username: str) -> str:
+    return _hashed_issue_id(_UNREACHABLE_ISSUE, username)
+
+
+def setup_passwords(hass: HomeAssistant) -> dict[str, dict[str, Any]]:
+    """The kept passwords open setup dialogs have proven but not yet stored,
+    by flow id; each is the dialog's own config, which its new entry copies."""
+    return hass.data.get(DOMAIN, {}).get("setup_passwords", {})
+
+
+@callback
+def raise_renewal_refused_issue(hass: HomeAssistant, username: str) -> None:
+    """Tell the user in Repairs that Verisure keeps refusing the saved sign-in.
+
+    Not persistent, for the same reason as the sign-in issue: the
+    ``username`` placeholder is the email.
+    """
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        _renewal_refused_issue_id(username),
+        is_fixable=False,
+        is_persistent=False,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key="renewal_refused",
+        translation_placeholders={"username": username},
+    )
+    clear_unreachable_issue(hass, username)
+
+
+@callback
+def clear_renewal_refused_issue(hass: HomeAssistant, username: str) -> None:
+    """Clear the account's renewal-refused issue, if raised."""
+    ir.async_delete_issue(hass, DOMAIN, _renewal_refused_issue_id(username))
+
+
+@callback
+def raise_unreachable_issue(hass: HomeAssistant, username: str) -> None:
+    """Tell the user in Repairs that no request to Verisure has worked for an
+    hour.
+
+    One problem, one notice: not raised while the account's renewal-refused
+    or sign-in issue shows, since those failures also count here. Not
+    persistent, as the ``username`` placeholder is the email.
+    """
+    registry = ir.async_get(hass)
+    if registry.async_get_issue(
+        DOMAIN, _renewal_refused_issue_id(username)
+    ) or registry.async_get_issue(DOMAIN, _sign_in_issue_id(username)):
+        return
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        _unreachable_issue_id(username),
+        is_fixable=False,
+        is_persistent=False,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key="cannot_reach_verisure",
+        translation_placeholders={
+            "username": username,
+            "url": f"{PROJECT_URL}/issues",
+        },
+    )
+
+
+@callback
+def clear_unreachable_issue(hass: HomeAssistant, username: str) -> None:
+    """Clear the account's "can't reach Verisure" issue, if raised."""
+    ir.async_delete_issue(hass, DOMAIN, _unreachable_issue_id(username))
+
+
+async def _async_notify(
+    hass: HomeAssistant,
+    notification_id: str,
+    translation_key: str,
+    placeholders: dict[str, str] | None = None,
+) -> None:
+    """Send a translated persistent notification."""
+    entry = get_notification_strings(hass, translation_key)
+    title = entry.get("title", "")
+    message = entry.get("message", "")
+    if placeholders:
+        for key, value in placeholders.items():
+            token = "{" + key + "}"
+            title = title.replace(token, str(value))
+            message = message.replace(token, str(value))
+    await hass.services.async_call(
+        domain="persistent_notification",
+        service="create",
+        service_data={
+            "title": title,
+            "message": message,
+            "notification_id": f"{DOMAIN}.{notification_id}",
+        },
+    )
+
+
+def _notify(
+    hass: HomeAssistant,
+    notification_id: str,
+    translation_key: str,
+    placeholders: dict[str, str] | None = None,
+) -> None:
+    """Schedule a translated persistent notification (sync-callable)."""
+    hass.async_create_task(
+        _async_notify(hass, notification_id, translation_key, placeholders)
+    )
+
+
+class VerisureDevice:
+    """Verisure OWA device instance."""
+
+    def __init__(self, installation: Installation) -> None:
+        """Construct a device wrapper."""
+        self.installation = installation
+        self.name = installation.alias
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return True
+
+    @property
+    def device_id(self) -> str:
+        """Return device ID."""
+        return self.installation.number
+
+    @property
+    def address(self) -> str:
+        """Return the address of the instalation."""
+        return self.installation.address
+
+    @property
+    def city(self) -> str:
+        """Return the city of the installation."""
+        return self.installation.city
+
+    @property
+    def postal_code(self) -> str:
+        """Return the postal code of the installation."""
+        return self.installation.postal_code
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return a device description for device registry."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"v4_securitas_direct.{self.installation.number}")},
+            manufacturer="Verisure",
+            model=self.installation.panel,
+            hw_version=self.installation.type,
+            name=self.name,
+        )
+
+
+class VerisureHub:
+    """A Verisure OWA hub wrapper class."""
+
+    def __init__(
+        self,
+        domain_config: dict[str, Any],
+        config_entry: ConfigEntry | None,
+        http_client: ClientSession,
+        hass: HomeAssistant,
+    ) -> None:
+        """Initialize the Verisure OWA hub."""
+        self.config = domain_config
+        self.config_entry: ConfigEntry | None = config_entry
+        # Set once a newer sign-in replaces this hub as the account's session.
+        self.replaced = False
+        self.country: str = domain_config[CONF_COUNTRY].upper()
+        api_domains = ApiDomains()
+        self.lang: str = api_domains.get_language(self.country)
+        self.hass: HomeAssistant = hass
+        self._services_cache: dict[str, list[Service]] = {}
+        # Mirrors `installation.alarm_partitions` (a side-effect of
+        # client.get_services) keyed by installation number so cache hits
+        # in get_services can re-apply the partitions to a fresh
+        # Installation instance — required by detect_peri's Italian
+        # SDVECU signal.
+        self._partitions_cache: dict[str, list[dict[str, Any]]] = {}
+        self.log_filter: SensitiveDataFilter | None = hass.data.get(DOMAIN, {}).get(
+            "log_filter"
+        )
+        transport = HttpTransport(
+            session=http_client,
+            base_url=api_domains.get_url(self.country),
+        )
+        self.client: VerisureOwaClient = VerisureOwaClient(
+            transport=transport,
+            country=self.country,
+            language=self.lang,
+            username=domain_config[CONF_USERNAME],
+            password=domain_config.get(CONF_PASSWORD, ""),
+            # The box stays ticked after a rejected kept password is removed.
+            password_kept=bool(
+                domain_config.get(CONF_KEEP_PASSWORD)
+                and domain_config.get(CONF_PASSWORD)
+            ),
+            device_id=domain_config[CONF_DEVICE_ID],
+            uuid=domain_config[CONF_UNIQUE_ID],
+            id_device_indigitall=domain_config[CONF_DEVICE_INDIGITALL],
+            poll_delay=domain_config[CONF_DELAY_CHECK_OPERATION],
+            poll_timeout=domain_config.get(
+                CONF_OPERATION_POLL_TIMEOUT, DEFAULT_OPERATION_POLL_TIMEOUT
+            ),
+            log_filter=self.log_filter,
+            refresh_token=domain_config.get(CONF_REFRESH_TOKEN),
+            on_refresh_token_changed=self._persist_refresh_token,
+            on_refresh_refusal_alert=self._refresh_refusal_alert,
+            on_unreachable_alert=self._unreachable_alert,
+            on_kept_password_rejected=self._forget_kept_password,
+        )
+        self._api_queue = ApiQueue(
+            interval=domain_config[CONF_DELAY_CHECK_OPERATION],
+        )
+        self.camera_images: dict[str, bytes] = {}
+        self.camera_timestamps: dict[str, str] = {}
+        self._camera_devices_cache: dict[str, list[CameraDevice]] = {}
+        self._camera_capturing: set[str] = set()  # keys of cameras currently capturing
+        # Coalesce concurrent full-image fetches for the same id_signal — two
+        # dashboard cards on the same camera share one API call.
+        self._full_image_inflight: dict[str, asyncio.Future[bytes | None]] = {}
+        # The refusal the last login() answered with a kept-password sign-in,
+        # so setup still counts it when that sign-in fails.
+        self.last_login_refusal: str | None = None
+
+    async def login(self) -> None:
+        """Authenticate, preferring a stored refresh token over a password login.
+
+        With no password to fall back on, a *genuinely* rejected refresh token
+        raises AuthenticationError so the caller can map it to
+        ConfigEntryAuthFailed — sending an empty password to the API would just
+        waste a round trip.
+
+        A transient failure (network, 5xx, 409, WAF block, an xSRefreshLogin
+        server crash or any other refusal of the saved sign-in) does not take
+        that path: it propagates so setup maps it to ConfigEntryNotReady and
+        retries, instead of forcing a needless reauth on a token-only account.
+        This mirrors the transient-vs-genuine split the client and coordinators
+        already use via is_genuine_auth_failure(). Verisure refusing the token
+        is retried this way however long it lasts; setup tracks how long (see
+        _note_setup_refresh_refusal in __init__).
+
+        The exception is a password the user chose to keep: a refusal is then
+        followed at once by a sign-in with it, and a password Verisure rejects
+        is dropped from the client so it is not tried again. A password held
+        only in memory is not spent on a refusal at setup: the same "don't
+        spend a login on a passing backend wobble" trade-off the steady-state
+        client path (_base.py) makes until refusals persist.
+        """
+        self.last_login_refusal = None
+        if self.client.refresh_token_value:
+            rejection: VerisureOwaError | None = None
+            try:
+                if await self.client.refresh_token():
+                    return
+            except VerisureOwaError as err:
+                if not is_genuine_auth_failure(err):
+                    signal = dead_refresh_token_signal(err)
+                    if not (
+                        signal is not None
+                        and self.client.password_kept
+                        and self.client.password
+                    ):
+                        raise
+                    self.last_login_refusal = signal
+                    _LOGGER.info(
+                        "Verisure refused the saved sign-in (%s); signing in "
+                        "with the kept password",
+                        signal,
+                    )
+                    await self._login_unattended()
+                    return
+                _LOGGER.warning("Refresh genuinely rejected: %s", err.log_detail())
+                rejection = err
+            if not self.client.password:
+                if rejection is not None and is_account_blocked(rejection):
+                    raise AccountBlockedError(
+                        "Account blocked by Verisure; reauth required"
+                    ) from rejection
+                raise AuthenticationError(
+                    "Refresh token rejected and no password available; reauth required"
+                )
+            _LOGGER.info("Falling back to password login after refresh failure")
+            await self._login_unattended()
+            return
+        await self.client.login()
+
+    async def _login_unattended(self) -> None:
+        """Sign in with the client's stored password in place of the saved
+        sign-in, dropping the password if Verisure rejects it.
+
+        Not used for a sign-in with no saved sign-in yet: the setup dialog
+        answers an SMS code request by signing in with the same password.
+        """
+        submitted, kept = self.client.password, self.client.password_kept
+        try:
+            await self.client.login()
+        except VerisureOwaError as err:
+            self.client.forget_rejected_password(err, submitted, kept=kept)
+            raise
+
+    async def validate_device(self) -> tuple[str | None, list[OtpPhone] | None]:
+        """Validate the current device."""
+        return await self.client.validate_device(False, "", "")
+
+    async def send_sms_code(
+        self, auth_otp_hash: str, sms_code: str
+    ) -> tuple[str | None, list[OtpPhone] | None]:
+        """Send the SMS."""
+        return await self.client.validate_device(True, auth_otp_hash, sms_code)
+
+    async def refresh_token(self) -> bool:
+        """Refresh the token."""
+        return await self.client.refresh_token()
+
+    async def send_opt(self, challange: str, phone_index: int) -> None:
+        """Call for the SMS challange."""
+        await self.client.send_otp(phone_index, challange)
+
+    async def get_services(
+        self, instalation: Installation, priority: int | None = None
+    ) -> list[Service]:
+        """Get the list of services from the installation (cached).
+
+        ``client.get_services`` mutates ``installation.alarm_partitions`` as
+        a side effect — Italian SDVECU panels need that field for capability
+        detection (it's the only signal that fires for them).  Cache the
+        partitions alongside the services and re-apply them on cache hits
+        so downstream detect_peri sees them no matter which Installation
+        instance the caller passed in.
+        """
+        if priority is None:
+            priority = ApiQueue.BACKGROUND
+        key = instalation.number
+        if key in self._services_cache:
+            cached_partitions = self._partitions_cache.get(key)
+            if cached_partitions is not None:
+                instalation.alarm_partitions = list(cached_partitions)
+            return self._services_cache[key]
+        services = await self._api_queue.submit(
+            self.client.get_services,
+            instalation,
+            priority=priority,
+        )
+        self._services_cache[key] = services
+        # Snapshot the partitions populated by client.get_services so the
+        # next caller with a fresh Installation can recover them.
+        self._partitions_cache[key] = list(instalation.alarm_partitions)
+        return services
+
+    async def get_camera_devices(
+        self, installation: Installation
+    ) -> list[CameraDevice]:
+        """Get camera devices for an installation (cached)."""
+        key = installation.number
+        if key in self._camera_devices_cache:
+            return self._camera_devices_cache[key]
+        devices = await self._api_queue.submit(
+            self.client.get_camera_devices,
+            installation,
+            priority=ApiQueue.BACKGROUND,
+        )
+        self._camera_devices_cache[key] = devices
+        return devices
+
+    def is_capturing(self, installation_number: str, zone_id: str) -> bool:
+        """Return True if a capture is in progress for this camera."""
+        return f"{installation_number}_{zone_id}" in self._camera_capturing
+
+    async def capture_image(
+        self, installation: Installation, camera_device: CameraDevice
+    ) -> tuple[bytes | None, ThumbnailResponse | None]:
+        """Request a new image capture and fetch the result.
+
+        The client handles all capture polling internally.  The hub keeps
+        HA-specific dispatcher signals, image validation/storage, and the
+        background full-image fetch.
+
+        Returns the validated JPEG bytes (or None) AND the ThumbnailResponse
+        (so callers can read the real ``id_signal`` / ``signal_type`` of the
+        captured frame).
+        """
+        device = camera_device
+        capture_key = f"{installation.number}_{device.zone_id}"
+        self._camera_capturing.add(capture_key)
+        async_dispatcher_send(
+            self.hass, SIGNAL_CAMERA_STATE, installation.number, device.zone_id
+        )
+
+        try:
+            # Delegate capture + polling entirely to the client.  The client
+            # pre-fetches a baseline thumbnail right before submitting the
+            # capture so it can poll for a strictly-newer frame afterwards —
+            # cached or coordinator-held timestamps aren't safe baselines
+            # because the CDN may already be serving a different stale frame.
+            thumbnail = await self._api_queue.submit(
+                partial(
+                    self.client.capture_image,
+                    installation,
+                    device.code,
+                    device.device_type,
+                    device.zone_id,
+                    wait_for_fresh=True,
+                ),
+                priority=ApiQueue.FOREGROUND,
+                label="capture_image",
+            )
+
+            image_bytes = self._validate_and_store_image(
+                thumbnail, installation, device, log_warnings=True
+            )
+
+            # Clear the capturing flag BEFORE pushing the new thumbnail into
+            # the coordinator — the entity's _handle_coordinator_update writes
+            # state with the new (rotated) token, and the frontend card's
+            # spinner-clear condition requires capturing=False at that moment.
+            self._camera_capturing.discard(capture_key)
+
+            self._update_camera_coordinator_thumbnail(
+                installation.number, device.zone_id, thumbnail
+            )
+
+            if image_bytes is None:
+                async_dispatcher_send(
+                    self.hass,
+                    SIGNAL_CAMERA_STATE,
+                    installation.number,
+                    device.zone_id,
+                )
+
+            # Fetch full-resolution image in background
+            if thumbnail is not None and thumbnail.id_signal and thumbnail.signal_type:
+                self.hass.async_create_task(
+                    self._fetch_and_store_full_image(installation, device, thumbnail)
+                )
+
+            return image_bytes, thumbnail
+        finally:
+            self._camera_capturing.discard(capture_key)
+
+    async def fetch_full_image(
+        self,
+        installation: Installation,
+        id_signal: str,
+        signal_type: str,
+        *,
+        priority: int | None = None,
+    ) -> bytes | None:
+        """Fetch a full-resolution image, coalescing concurrent calls per signal.
+
+        If another caller is already fetching this `id_signal`, waits on that
+        in-flight task instead of issuing a duplicate API request.
+        """
+        if priority is None:
+            priority = ApiQueue.BACKGROUND
+        key = f"{installation.number}_{id_signal}"
+        inflight = self._full_image_inflight.get(key)
+        if inflight is not None:
+            # Shield so a cancellation of *this* awaiter doesn't tear down
+            # the shared task that other awaiters still depend on.
+            return await asyncio.shield(inflight)
+
+        task = self.hass.async_create_task(
+            self._api_queue.submit(
+                self.client.get_full_image,
+                installation,
+                id_signal,
+                signal_type,
+                priority=priority,
+            ),
+            name=f"verisure_owa_full_image_{key}",
+        )
+        self._full_image_inflight[key] = task
+        task.add_done_callback(lambda _t: self._full_image_inflight.pop(key, None))
+        return await asyncio.shield(task)
+
+    async def _fetch_and_store_full_image(
+        self,
+        installation: Installation,
+        camera_device: CameraDevice,
+        thumbnail: ThumbnailResponse,
+    ) -> None:
+        """Fetch the full-resolution photo and store it, then notify the frontend."""
+        if not thumbnail.id_signal or not thumbnail.signal_type:
+            return
+        try:
+            full_bytes = await self.fetch_full_image(
+                installation,
+                thumbnail.id_signal,
+                thumbnail.signal_type,
+                priority=ApiQueue.BACKGROUND,
+            )
+        except Exception:  # pylint: disable=broad-exception-caught
+            _LOGGER.warning(
+                "Could not fetch full image for %s",
+                camera_device.name,
+                exc_info=True,
+            )
+            return
+
+        if not full_bytes or not full_bytes.startswith(b"\xff\xd8"):
+            return
+
+        self._update_camera_coordinator_full_image(
+            installation.number, camera_device.zone_id, full_bytes
+        )
+
+    def _validate_and_store_image(
+        self,
+        thumbnail: ThumbnailResponse | None,
+        installation: Installation,
+        camera_device: CameraDevice,
+        *,
+        log_warnings: bool = True,
+    ) -> bytes | None:
+        """Decode, validate JPEG, and cache a thumbnail image."""
+        if thumbnail is None or thumbnail.image is None:
+            return None
+        image_bytes = base64.b64decode(thumbnail.image)
+        if not image_bytes.startswith(b"\xff\xd8"):
+            if log_warnings:
+                _LOGGER.warning(
+                    "Thumbnail for %s is not JPEG data (got %d bytes starting with %r)",
+                    camera_device.name,
+                    len(image_bytes),
+                    image_bytes[:40],
+                )
+            return None
+        key = f"{installation.number}_{camera_device.zone_id}"
+        self.camera_images[key] = image_bytes
+        if thumbnail.timestamp:
+            self.camera_timestamps[key] = thumbnail.timestamp
+        return image_bytes
+
+    def _camera_coordinators(self, installation_number: str) -> list[Any]:
+        """Return every CameraCoordinator for the installation that holds data.
+
+        Searched across entries: the hub is shared by every entry on the
+        account, and ``config_entry`` is only the one that signed in first.
+        Two entries can hold the same installation, and only one of them
+        owns the camera entities, so every match gets the update.
+        """
+        coords = []
+        for entry_data in self.hass.data.get(DOMAIN, {}).values():
+            if not isinstance(entry_data, dict):
+                continue
+            coord = entry_data.get("camera_coordinator")
+            if (
+                coord is not None
+                and coord.data is not None
+                and coord.installation.number == installation_number
+            ):
+                coords.append(coord)
+        return coords
+
+    def _update_camera_coordinator_thumbnail(
+        self, installation_number: str, zone_id: str, thumbnail: ThumbnailResponse
+    ) -> None:
+        """Push a new thumbnail into the installation's CameraCoordinators."""
+        if thumbnail is None:
+            return
+        from .coordinators import CameraData
+
+        for camera_coord in self._camera_coordinators(installation_number):
+            camera_coord.async_set_updated_data(
+                CameraData(
+                    thumbnails={**camera_coord.data.thumbnails, zone_id: thumbnail},
+                    full_images=dict(camera_coord.data.full_images),
+                )
+            )
+
+    def _update_camera_coordinator_full_image(
+        self, installation_number: str, zone_id: str, full_bytes: bytes
+    ) -> None:
+        """Push a new full-resolution image into the installation's CameraCoordinators."""
+        from .coordinators import CameraData
+
+        for camera_coord in self._camera_coordinators(installation_number):
+            camera_coord.async_set_updated_data(
+                CameraData(
+                    thumbnails=dict(camera_coord.data.thumbnails),
+                    full_images={**camera_coord.data.full_images, zone_id: full_bytes},
+                )
+            )
+
+    def get_camera_image(self, installation_number: str, zone_id: str) -> bytes | None:
+        """Return the last captured image for a camera."""
+        return self.camera_images.get(f"{installation_number}_{zone_id}")
+
+    def get_camera_timestamp(
+        self, installation_number: str, zone_id: str
+    ) -> str | None:
+        """Return the timestamp of the last captured image."""
+        return self.camera_timestamps.get(f"{installation_number}_{zone_id}")
+
+    def get_authentication_token(self) -> str | None:
+        """Get the authentication token."""
+        return self.client.authentication_token
+
+    def get_refresh_token(self) -> str:
+        """Get the long-lived refresh token, or empty string if absent."""
+        return self.client.refresh_token_value
+
+    @property
+    def refresh_refusals_persisting(self) -> bool:
+        """True once Verisure has kept refusing the client's refresh token."""
+        return self.client.refresh_refusals_persisting
+
+    @property
+    def refresh_refusal_alert_raised(self) -> bool:
+        """True from the client's refusal alert until a renewal succeeds."""
+        return self.client.refresh_refusal_alert_raised
+
+    @property
+    def unreachable_alert_raised(self) -> bool:
+        """True from the client's unreachable alert until a request succeeds."""
+        return self.client.unreachable_alert_raised
+
+    @property
+    def renewal_lock(self) -> asyncio.Lock:
+        """The lock the client's token renewals hold; see the client's."""
+        return self.client.renewal_lock
+
+    def adopt_refresh_token(self, value: str) -> RefreshTokenSnapshot:
+        """Hand the client the stored refresh token of an entry joining this
+        shared session."""
+        return self.client.adopt_refresh_token(value)
+
+    def restore_refresh_token(self, snapshot: RefreshTokenSnapshot) -> None:
+        """Hand the client back what adopt_refresh_token replaced."""
+        self.client.restore_refresh_token(snapshot)
+
+    def _persist_refresh_token(self, value: str) -> None:
+        """Write a rotated refresh token back to the config entry.
+
+        Also scrubs a CONF_PASSWORD the entry does not keep (a legacy one, or
+        one beside an unticked box) on the first capture. No-op when
+        the hub is detached from a config entry (config-flow construction).
+
+        Never writes into an entry that reauth or Reconfigure has moved to
+        another account: this login belongs to the session's own account.
+
+        Emits a DEBUG diagnostic for issue #557 recording which branch ran:
+        ``persisted`` (write issued), ``already-current`` (disk already holds
+        this token), ``no-config-entry`` (detached hub) or ``other-account``.
+        This proves the in-memory rotation reached the config entry — the
+        memory->disk half that the client-side ``rotated_fp`` line cannot by
+        itself confirm.
+        """
+        fp = _token_fingerprint(value)
+        if self.config_entry is None:
+            outcome = "no-config-entry"
+        elif self.config_entry.data.get(CONF_USERNAME) != self.client.username:
+            outcome = "other-account"
+        else:
+            existing = self.config_entry.data
+            keeps_password = bool(existing.get(CONF_KEEP_PASSWORD))
+            if existing.get(CONF_REFRESH_TOKEN) == value and (
+                keeps_password or CONF_PASSWORD not in existing
+            ):
+                outcome = "already-current"
+            else:
+                new_data = {**existing, CONF_REFRESH_TOKEN: value}
+                if not keeps_password:
+                    new_data.pop(CONF_PASSWORD, None)
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data=new_data
+                )
+                outcome = "persisted"
+        _LOGGER.debug(
+            "[refresh] persist refresh token: persist_fp=%s outcome=%s", fp, outcome
+        )
+
+    def _refresh_refusal_alert(self, active: bool) -> None:
+        """Raise or clear the renewal-refused issue for the client's account.
+
+        A hub without a config entry (retired by reauth or Reconfigure, or
+        built by the config flow) must not re-raise an issue the sign-in
+        cleared.
+        """
+        if active:
+            self.raise_refusal_notice()
+        elif self.config_entry is not None:
+            clear_renewal_refused_issue(self.hass, self.client.username)
+
+    def raise_refusal_notice(self) -> None:
+        """Raise the renewal-refused issue, unless no entry uses the account:
+        the hub is detached, or Reconfigure moved its entry to another one."""
+        entry = self.config_entry
+        if entry is None or entry.data.get(CONF_USERNAME) != self.client.username:
+            return
+        raise_renewal_refused_issue(self.hass, self.client.username)
+
+    def _unreachable_alert(self, active: bool) -> None:
+        """Raise or clear the "can't reach Verisure" issue for the client's
+        account, by the same entry rules as the renewal-refused issue."""
+        if active:
+            self.raise_unreachable_notice()
+        elif self.config_entry is not None:
+            clear_unreachable_issue(self.hass, self.client.username)
+
+    def _forget_kept_password(self, rejected: str) -> None:
+        """Remove the password Verisure rejected from the entries of the
+        client's account that store it, and from open setup dialogs about to
+        store it, so no restart or joining entry tries it again. A different
+        password, saved since, stays.
+
+        The box stays ticked: the sign-in the user is asked for next keeps the
+        new password.
+
+        A replaced hub leaves them alone: the newer sign-in may have saved the
+        same password, and Verisure's answer to this one does not judge it.
+        """
+        if self.replaced:
+            return
+        username = self.client.username
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if (
+                entry.data.get(CONF_USERNAME) != username
+                or entry.data.get(CONF_PASSWORD) != rejected
+            ):
+                continue
+            new_data = {**entry.data}
+            new_data.pop(CONF_PASSWORD)
+            self.hass.config_entries.async_update_entry(entry, data=new_data)
+        for config in setup_passwords(self.hass).values():
+            if (
+                config[CONF_USERNAME] == username
+                and config.get(CONF_PASSWORD) == rejected
+            ):
+                del config[CONF_PASSWORD]
+        _LOGGER.warning(
+            "Verisure rejected the kept password; it is no longer stored. Sign "
+            "in again to keep a new one"
+        )
+
+    def raise_unreachable_notice(self) -> None:
+        """Raise the "can't reach Verisure" issue, unless no entry uses the
+        account: the hub is detached, or Reconfigure moved its entry."""
+        entry = self.config_entry
+        if entry is None or entry.data.get(CONF_USERNAME) != self.client.username:
+            return
+        raise_unreachable_issue(self.hass, self.client.username)
+
+    def persist_current_refresh_token(self) -> None:
+        """Write the current in-memory refresh token to the config entry now.
+
+        Used when the persistence target is reassigned (e.g. the owning entry
+        is unloaded while a co-tenant survives) so the new entry's stored token
+        is current immediately, not left stale until the next rotation.
+        """
+        self._persist_refresh_token(self.get_refresh_token())
+
+    async def get_lock_modes(
+        self, installation: Installation, *, priority: int | None = None
+    ) -> list[SmartLockMode]:
+        """Get lock modes from the API via the queue."""
+        if priority is None:
+            priority = ApiQueue.BACKGROUND
+
+        try:
+            modes: list[SmartLockMode] = await self._api_queue.submit(
+                self.client.get_lock_modes,
+                installation,
+                priority=priority,
+            )
+        except VerisureOwaError as err:
+            _LOGGER.warning(
+                "Error fetching lock modes for %s: %s",
+                installation.number,
+                err.log_detail(),
+            )
+            modes = []
+
+        return modes
+
+    async def arm_alarm(
+        self,
+        installation: Installation,
+        command: str,
+        *,
+        on_start: Callable[[], None] | None = None,
+        poll_timeout: float | None = None,
+        **force_params: str,
+    ) -> Any:
+        """Arm the alarm via the client (polling handled internally).
+
+        ``on_start`` runs once the command leaves the queue: a caller
+        cancelled before then sent nothing. ``poll_timeout`` is the calling
+        entry's: the client's own is that of the entry that signed in first.
+        """
+        force_id = force_params.get("force_arming_remote_id")
+        suid = force_params.get("suid")
+
+        async def _arm() -> OperationStatus:
+            if on_start is not None:
+                on_start()
+            return await self.client.arm(
+                installation,
+                command,
+                force_id=force_id,
+                suid=suid,
+                poll_timeout=poll_timeout,
+            )
+
+        return await self._api_queue.submit(
+            _arm,
+            priority=ApiQueue.FOREGROUND,
+        )
+
+    async def refresh_alarm_status(
+        self, installation: Installation, *, poll_timeout: float | None = None
+    ) -> OperationStatus:
+        """Full alarm status refresh via CheckAlarm + poll (through queue).
+
+        Used by the refresh button for an authoritative protom round-trip.
+        """
+        return await self._api_queue.submit(
+            partial(self.client.check_alarm, poll_timeout=poll_timeout),
+            installation,
+            priority=ApiQueue.FOREGROUND,
+            label="check_alarm",
+        )
+
+    async def disarm_alarm(
+        self,
+        installation: Installation,
+        command: str,
+        *,
+        on_start: Callable[[], None] | None = None,
+        poll_timeout: float | None = None,
+    ) -> Any:
+        """Disarm the alarm via the client (polling handled internally).
+
+        ``on_start`` runs once the command leaves the queue, as for
+        ``arm_alarm``.
+        """
+
+        async def _disarm() -> OperationStatus:
+            if on_start is not None:
+                on_start()
+            return await self.client.disarm(
+                installation, command, poll_timeout=poll_timeout
+            )
+
+        return await self._api_queue.submit(
+            _disarm,
+            priority=ApiQueue.FOREGROUND,
+        )
+
+    async def change_lock_mode(
+        self,
+        installation: Installation,
+        lock_state: bool,
+        device_id: str,
+        *,
+        poll_timeout: float | None = None,
+    ) -> None:
+        """Send lock/unlock command and wait for completion.
+
+        The client handles all polling internally.
+        """
+        await self._api_queue.submit(
+            partial(self.client.change_lock_mode, poll_timeout=poll_timeout),
+            installation,
+            lock_state,
+            device_id,
+            priority=ApiQueue.FOREGROUND,
+            label="change_lock_mode",
+        )
+
+    async def get_lock_config(
+        self,
+        installation: Installation,
+        device_id: str,
+        *,
+        priority: int = ApiQueue.FOREGROUND,
+        poll_timeout: float | None = None,
+    ) -> SmartLock | None:
+        """Fetch lock config, auto-detecting Smartlock vs Danalock API.
+
+        The client handles auto-detection and Danalock polling internally.
+        Returns SmartLock or None if both paths fail.
+        """
+        result = await self._api_queue.submit(
+            partial(self.client.get_lock_config, poll_timeout=poll_timeout),
+            installation,
+            device_id,
+            priority=priority,
+            label="get_lock_config",
+        )
+        return result if result and result.res == "OK" else None
+
+    @property
+    def api_queue(self) -> ApiQueue:
+        """Return the API queue."""
+        return self._api_queue
+
+    @api_queue.setter
+    def api_queue(self, value: ApiQueue) -> None:
+        """Set the API queue."""
+        self._api_queue = value
+
+    @property
+    def services_cache(self) -> dict[str, list[Service]]:
+        """Return the services cache."""
+        return self._services_cache

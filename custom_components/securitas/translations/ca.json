@@ -1,0 +1,363 @@
+{
+    "config": {
+        "error": {
+            "account_blocked": "El vostre compte ha estat bloquejat per Verisure. Feu servir 'He oblidat la contrasenya' al lloc web de Verisure per restablir la contrasenya i desbloquejar el compte; després torneu-ho a provar",
+            "invalid_auth": "Nom d'usuari o contrasenya incorrectes",
+            "cannot_connect": "No es pot connectar amb Verisure",
+            "invalid_otp": "Codi de verificació no vàlid",
+            "otp_expired": "El codi de verificació ha caducat — s'enviarà un codi nou",
+            "otp_send_failed": "No s'ha pogut enviar el codi de verificació — torneu-ho a provar",
+            "service_error": "Error del servei Verisure: {error}"
+        },
+        "abort": {
+            "already_configured": "El servei ja està configurat",
+            "reauth_successful": "Reautenticació correcta",
+            "reconfigure_successful": "Sessió iniciada de nou",
+            "no_refresh_token": "L'inici de sessió ha estat correcte però Verisure no ha retornat un token d'actualització. La integració no pot desar les credencials de manera segura. Torna-ho a provar més tard o comunica-ho si persisteix.",
+            "installation_not_on_account": "Aquest compte de Verisure no pot veure la instal·lació {number}. Inicia la sessió amb un compte que hi tingui accés.",
+            "signed_in_again_elsewhere": "Mentre aquest diàleg iniciava la sessió, s'ha tornat a iniciar la sessió d'aquesta entrada des d'un altre diàleg, així que aquest inici de sessió no s'ha desat.",
+            "account_signed_in_again_elsewhere": "Mentre aquest diàleg iniciava la sessió, s'ha tornat a iniciar la sessió d'aquest compte de Verisure des del diàleg d'una altra instal·lació, així que aquest inici de sessió no s'ha desat. Si aquesta instal·lació encara no es pot connectar, torna a iniciar la sessió.",
+            "already_in_progress": "Ja hi ha una altra configuració o un altre inici de sessió en curs per a aquesta instal·lació."
+        },
+        "step": {
+            "reauth_confirm": {
+                "title": "Reautentica Verisure",
+                "description": "La sessió ha caducat. Torneu a introduir la contrasenya per reconnectar.",
+                "data": {
+                    "username": "Nom d'usuari",
+                    "password": "Contrasenya",
+                    "keep_password": "Desa la meva contrasenya perquè la integració pugui tornar a iniciar la sessió per si sola"
+                },
+                "data_description": {
+                    "keep_password": "Si ho marqueu, la contrasenya es desa sense xifrar als fitxers de configuració de Home Assistant, on qualsevol persona que pugui llegir aquests fitxers o una còpia de seguretat seva la pot llegir. Deixeu-ho sense marcar per desar només l'inici de sessió guardat, que no és la vostra contrasenya i, per tant, no serveix de res enlloc més on feu servir aquesta contrasenya."
+                }
+            },
+            "reconfigure": {
+                "title": "Torna a iniciar la sessió a Verisure",
+                "description": "Introduïu la contrasenya de Verisure per obtenir un inici de sessió nou. Feu-ho servir quan la integració no es pot connectar i no us ha demanat que torneu a iniciar la sessió.",
+                "data": {
+                    "username": "Nom d'usuari",
+                    "password": "Contrasenya",
+                    "keep_password": "Desa la meva contrasenya perquè la integració pugui tornar a iniciar la sessió per si sola"
+                },
+                "data_description": {
+                    "keep_password": "Si ho marqueu, la contrasenya es desa sense xifrar als fitxers de configuració de Home Assistant, on qualsevol persona que pugui llegir aquests fitxers o una còpia de seguretat seva la pot llegir. Deixeu-ho sense marcar per desar només l'inici de sessió guardat, que no és la vostra contrasenya i, per tant, no serveix de res enlloc més on feu servir aquesta contrasenya."
+                }
+            },
+            "user": {
+                "data": {
+                    "country": "País",
+                    "username": "Nom d'usuari",
+                    "password": "Contrasenya",
+                    "keep_password": "Desa la meva contrasenya perquè la integració pugui tornar a iniciar la sessió per si sola"
+                },
+                "data_description": {
+                    "keep_password": "Si ho marqueu, la contrasenya es desa sense xifrar als fitxers de configuració de Home Assistant, on qualsevol persona que pugui llegir aquests fitxers o una còpia de seguretat seva la pot llegir. Deixeu-ho sense marcar per desar només l'inici de sessió guardat, que no és la vostra contrasenya i, per tant, no serveix de res enlloc més on feu servir aquesta contrasenya."
+                },
+                "description": "Inicia la sessió a Verisure.",
+                "title": "Inici de sessió"
+            },
+            "phone_list": {
+                "description": "A quin número de telèfon voleu que enviem el codi per SMS?",
+                "title": "Verisure 2FA",
+                "data": {
+                    "phones": "Número de telèfon"
+                }
+            },
+            "otp_challenge": {
+                "description": "Introduïu el codi que heu rebut al telèfon",
+                "title": "Verisure 2FA"
+            },
+            "select_installation": {
+                "title": "Selecciona la instal·lació",
+                "description": "Seleccioneu la instal·lació que voleu configurar.",
+                "data": {
+                    "installation": "Instal·lació"
+                }
+            },
+            "options": {
+                "title": "Opcions per a {installation_name}",
+                "description": "Configura les opcions de l'alarma.",
+                "sections": {
+                    "activity": {
+                        "name": "Registre d'activitat i esdeveniments",
+                        "data": {
+                            "enable_activity_polling": "Consulta el registre d'activitat un cop per minut en segon pla (per a automatitzacions per esdeveniments)"
+                        }
+                    },
+                    "advanced": {
+                        "name": "Avançat",
+                        "data": {
+                            "scan_interval": "Interval d'actualització en segons (0 desactiva les actualitzacions automàtiques)",
+                            "delay_check_operation": "Retard entre sol·licituds de l'API (s)",
+                            "operation_poll_timeout": "Temps d'espera de confirmació (segons)"
+                        },
+                        "data_description": {
+                            "operation_poll_timeout": "Quant de temps esperar que el panell confirmi una acció d'armat/desarmat. Augmenta'l si reps avisos de temps d'espera esgotat."
+                        }
+                    },
+                    "pin": {
+                        "name": "Codi PIN per desarmar",
+                        "data": {
+                            "code": "Codi PIN (deixeu-lo buit per no usar cap PIN)",
+                            "code_arm_required": "Requerir també el codi PIN (si n'hi ha) per armar l'alarma",
+                            "lock_code_required": "Requerir també el codi PIN (si n'hi ha) per a les operacions del pany"
+                        }
+                    },
+                    "notifications": {
+                        "name": "Notificacions d'armat forçat",
+                        "data": {
+                            "notify_group": "Servei de notificació per a excepcions en armar (p. ex. mobile_app_phone)",
+                            "force_arm_notifications": "Notificacions integrades d'armat forçat (desactiveu-les per usar les vostres automatitzacions)",
+                            "auto_force_arm": "Mostra una casella d'armat forçat automàtic als controls de l'alarma"
+                        },
+                        "data_description": {
+                            "auto_force_arm": "Quan està activat, el diàleg d'informació de l'alarma i una targeta Peça (Tile) amb els Modes d'alarma i la funció Verisure OWA Open Sensors (i la targeta d'alarma obsoleta) mostren una casella que força l'armat automàticament ignorant portes/finestres obertes, en lloc d'esperar la vostra confirmació. Només actua sobre un armat iniciat amb els botons que l'acompanyen. L'elecció es recorda per dispositiu al navegador. Deixeu-ho desactivat si la vostra central no admet l'armat forçat."
+                        }
+                    },
+                    "subpanels": {
+                        "name": "Sub-panells addicionals",
+                        "data": {
+                            "enable_perimeter_panel": "Activar el panell de control només Perímetre",
+                            "enable_annex_panel": "Activar el panell de control només Annex",
+                            "enable_interior_panel": "Activar el panell de control només Interior"
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "title": "Assignació d'estats de l'alarma",
+                "description": "Aquestes assignacions s'apliquen només al panell principal. Assigneu cada acció d'alarma de Home Assistant a un mode d'alarma de Verisure; deixeu un camp en blanc per amagar aquest botó.{subpanels_note}",
+                "data": {
+                    "map_home": "Casa",
+                    "map_away": "Fora",
+                    "map_night": "Nit",
+                    "map_vacation": "Vacances",
+                    "map_custom": "Personalitzat"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "sections": {
+                    "activity": {
+                        "name": "Registre d'activitat i esdeveniments",
+                        "data": {
+                            "enable_activity_polling": "Consulta el registre d'activitat un cop per minut en segon pla (per a automatitzacions per esdeveniments)"
+                        }
+                    },
+                    "sign_in": {
+                        "name": "Inici de sessió",
+                        "description": "Amb aquesta casella marcada, la integració desa la vostra contrasenya als fitxers de configuració de Home Assistant per poder tornar a iniciar la sessió per si sola. Si Verisure ha rebutjat la contrasenya desada, ja s'ha eliminat: torneu a iniciar la sessió amb Reconfigura per desar-ne una de nova.",
+                        "data": {
+                            "keep_password": "Desa la meva contrasenya perquè la integració pugui tornar a iniciar la sessió per si sola"
+                        },
+                        "data_description": {
+                            "keep_password": "Desmarqueu-ho i deseu per esborrar la contrasenya desada a l'instant, sense iniciar la sessió. Per tornar a desar la contrasenya, feu servir Reconfigura, on l'escriviu."
+                        }
+                    },
+                    "advanced": {
+                        "name": "Avançat",
+                        "data": {
+                            "scan_interval": "Interval d'actualització en segons (0 desactiva les actualitzacions automàtiques)",
+                            "delay_check_operation": "Retard entre sol·licituds de l'API (s)",
+                            "operation_poll_timeout": "Temps d'espera de confirmació (segons)"
+                        },
+                        "data_description": {
+                            "operation_poll_timeout": "Quant de temps esperar que el panell confirmi una acció d'armat/desarmat. Augmenta'l si reps avisos de temps d'espera esgotat."
+                        }
+                    },
+                    "pin": {
+                        "name": "Codi PIN per desarmar",
+                        "data": {
+                            "code": "Codi PIN (deixeu-lo buit per no usar cap PIN)",
+                            "code_arm_required": "Requerir també el codi PIN (si n'hi ha) per armar l'alarma",
+                            "lock_code_required": "Requerir també el codi PIN (si n'hi ha) per a les operacions del pany"
+                        }
+                    },
+                    "notifications": {
+                        "name": "Notificacions d'armat forçat",
+                        "data": {
+                            "notify_group": "Servei de notificació per a excepcions en armar (p. ex. mobile_app_phone)",
+                            "force_arm_notifications": "Notificacions integrades d'armat forçat (desactiveu-les per usar les vostres automatitzacions)",
+                            "auto_force_arm": "Mostra una casella d'armat forçat automàtic als controls de l'alarma"
+                        },
+                        "data_description": {
+                            "auto_force_arm": "Quan està activat, el diàleg d'informació de l'alarma i una targeta Peça (Tile) amb els Modes d'alarma i la funció Verisure OWA Open Sensors (i la targeta d'alarma obsoleta) mostren una casella que força l'armat automàticament ignorant portes/finestres obertes, en lloc d'esperar la vostra confirmació. Només actua sobre un armat iniciat amb els botons que l'acompanyen. L'elecció es recorda per dispositiu al navegador. Deixeu-ho desactivat si la vostra central no admet l'armat forçat."
+                        }
+                    },
+                    "subpanels": {
+                        "name": "Sub-panells addicionals",
+                        "data": {
+                            "enable_perimeter_panel": "Activar el panell de control només Perímetre",
+                            "enable_annex_panel": "Activar el panell de control només Annex",
+                            "enable_interior_panel": "Activar el panell de control només Interior"
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "title": "Assignació d'estats de l'alarma",
+                "description": "Aquestes assignacions s'apliquen només al panell principal. Assigneu cada acció d'alarma de Home Assistant a un mode d'alarma de Verisure; deixeu un camp en blanc per amagar aquest botó.{subpanels_note}",
+                "data": {
+                    "map_home": "Casa",
+                    "map_away": "Fora",
+                    "map_night": "Nit",
+                    "map_vacation": "Vacances",
+                    "map_custom": "Personalitzat"
+                }
+            },
+            "lock_automations": {
+                "title": "Automatització del pany",
+                "description": "Configureu el comportament automàtic de tancament i desarmament per a cada pany.\n\n⚠️ Desactiveu primer el bloqueig automàtic a l'aplicació de Verisure: el seu bloqueig automàtic per temporitzador entra en conflicte amb el tancament en armar d'aquesta integració.\n\nNota: això difereix de l'aplicació de Verisure. L'aplicació desbloqueja el pany quan es desarma l'alarma; aquesta integració, en canvi, desarma l'alarma quan es desbloqueja el pany, i només quan es desbloqueja des de Home Assistant.",
+                "sections": {
+                    "lock__01": {
+                        "name": "{lock_alias_01}",
+                        "data": {
+                            "lock_on_arm__interior": "Tanca automàticament en armar l'alarma Interior",
+                            "lock_on_arm__perimeter": "Tanca automàticament en armar l'alarma Perímetre",
+                            "lock_on_arm__annex": "Tanca automàticament en armar l'alarma Annex",
+                            "unlock_disarms__interior": "Desarma l'alarma Interior abans de tornar a obrir",
+                            "unlock_disarms__perimeter": "Desarma l'alarma Perímetre abans de tornar a obrir",
+                            "unlock_disarms__annex": "Desarma l'alarma Annex abans de tornar a obrir"
+                        }
+                    },
+                    "lock__02": {
+                        "name": "{lock_alias_02}",
+                        "data": {
+                            "lock_on_arm__interior": "Tanca automàticament en armar l'alarma Interior",
+                            "lock_on_arm__perimeter": "Tanca automàticament en armar l'alarma Perímetre",
+                            "lock_on_arm__annex": "Tanca automàticament en armar l'alarma Annex",
+                            "unlock_disarms__interior": "Desarma l'alarma Interior abans de tornar a obrir",
+                            "unlock_disarms__perimeter": "Desarma l'alarma Perímetre abans de tornar a obrir",
+                            "unlock_disarms__annex": "Desarma l'alarma Annex abans de tornar a obrir"
+                        }
+                    },
+                    "lock__03": {
+                        "name": "{lock_alias_03}",
+                        "data": {
+                            "lock_on_arm__interior": "Tanca automàticament en armar l'alarma Interior",
+                            "lock_on_arm__perimeter": "Tanca automàticament en armar l'alarma Perímetre",
+                            "lock_on_arm__annex": "Tanca automàticament en armar l'alarma Annex",
+                            "unlock_disarms__interior": "Desarma l'alarma Interior abans de tornar a obrir",
+                            "unlock_disarms__perimeter": "Desarma l'alarma Perímetre abans de tornar a obrir",
+                            "unlock_disarms__annex": "Desarma l'alarma Annex abans de tornar a obrir"
+                        }
+                    },
+                    "lock__04": {
+                        "name": "{lock_alias_04}",
+                        "data": {
+                            "lock_on_arm__interior": "Tanca automàticament en armar l'alarma Interior",
+                            "lock_on_arm__perimeter": "Tanca automàticament en armar l'alarma Perímetre",
+                            "lock_on_arm__annex": "Tanca automàticament en armar l'alarma Annex",
+                            "unlock_disarms__interior": "Desarma l'alarma Interior abans de tornar a obrir",
+                            "unlock_disarms__perimeter": "Desarma l'alarma Perímetre abans de tornar a obrir",
+                            "unlock_disarms__annex": "Desarma l'alarma Annex abans de tornar a obrir"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "services": {
+        "force_arm": {
+            "name": "Força l'armat",
+            "description": "Obsolet — utilitza `verisure_owa.force_arm` en lloc d'aquest.\n\nForça l'armat de l'alarma, ignorant les excepcions no bloquejants (p. ex. finestres obertes) d'un intent d'armat fallit anterior.",
+            "fields": {
+                "code": {
+                    "name": "Codi PIN",
+                    "description": "Opcional. Si es proporciona, es valida amb el PIN configurat abans de completar l'armat forçat. La majoria de les crides no el necessiten — l'intent d'armat anterior que va produir el context d'armat forçat ja va validar el PIN."
+                }
+            }
+        },
+        "force_arm_cancel": {
+            "name": "Cancel·la l'armat forçat",
+            "description": "Obsolet — utilitza `verisure_owa.force_arm_cancel` en lloc d'aquest.\n\nCancel·la un armat forçat pendent i descarta la notificació d'excepció d'armat."
+        }
+    },
+    "exceptions": {
+        "invalid_pin_code": {
+            "message": "Codi PIN no vàlid per a {entity_id}"
+        },
+        "unsupported_alarm_mode": {
+            "message": "Aquest mode d'alarma no és compatible amb el teu panell (rebutjat: {tried}). Revisa les assignacions d'estat a les opcions de la integració (Configuració → Dispositius i serveis → Verisure → Configurar)."
+        },
+        "unsupported_alarm_mode_subpanel": {
+            "message": "Aquest mode d'alarma no és compatible amb el teu panell (rebutjat: {tried}). S'ha desactivat en aquest subpanell i no es tornarà a oferir."
+        },
+        "no_supported_command": {
+            "message": "No s'ha trobat cap ordre compatible per a aquest panell. Revisa les assignacions d'estat a les opcions de la integració (Configuració → Dispositius i serveis → Verisure → Configurar)."
+        },
+        "operation_in_progress": {
+            "message": "L'alarma està ocupada amb una altra ordre. Torna-ho a provar d'aquí a un moment."
+        },
+        "arm_refused_unknown_state": {
+            "message": "No es pot armar {installation}: l'alarma indica un estat que aquesta integració no reconeix (codi {code}). Consulta Configuració → Reparacions."
+        }
+    },
+    "issues": {
+        "orphan_verisure_owa_directory": {
+            "title": "Carpeta verisure_owa sobrant",
+            "description": "S'ha trobat una carpeta obsoleta `verisure_owa` a `{path}` d'una actualització anterior. Ja no fa res i es pot esborrar amb seguretat. Elimina-la i reinicia Home Assistant per amagar aquest avís."
+        },
+        "duplicate_entry": {
+            "title": "Instal·lació afegida dues vegades",
+            "description": "Verisure OWA té dues entrades per a {installation} amb el mateix compte. Elimina'n una a Configuració → Dispositius i serveis → Verisure OWA. Aquest avís desapareix quan només en queda una."
+        },
+        "unknown_alarm_state": {
+            "title": "Estat d'alarma no reconegut",
+            "description": "Verisure indica el codi d'estat d'alarma {code} per a {installation}, que aquesta integració encara no reconeix. Desarmar continua funcionant, però armar es rebutja fins que l'alarma indiqui un estat conegut. Informa del codi a {url} perquè es pugui afegir. Aquest avís desapareix quan torna un estat conegut."
+        },
+        "sign_in_again": {
+            "title": "Torna a iniciar la sessió a Verisure",
+            "description": "Verisure necessita que tornis a iniciar la sessió com a {username}; fins aleshores, Home Assistant no pot connectar amb la teva alarma. Obre Configuració → Dispositius i serveis → Verisure OWA i segueix l'avís per iniciar la sessió amb la contrasenya (i el codi que Verisure t'enviï per SMS, si el demana). Aquest avís desapareix quan l'inici de sessió funciona."
+        },
+        "account_blocked": {
+            "title": "Verisure ha bloquejat el teu compte",
+            "description": "Verisure ha bloquejat el compte {username}, de manera que Home Assistant no pot connectar amb la teva alarma. Fes servir 'He oblidat la contrasenya' al lloc web de Verisure per restablir la contrasenya i desbloquejar el compte; després obre Configuració → Dispositius i serveis → Verisure OWA i segueix l'avís per iniciar la sessió amb la nova contrasenya. Aquest avís desapareix quan l'inici de sessió funciona."
+        },
+        "renewal_refused": {
+            "title": "Verisure continua rebutjant la sessió desada",
+            "description": "Fa almenys 15 minuts que Verisure rebutja renovar la sessió desada de {username}, de manera que Home Assistant no pot connectar amb la teva alarma. Sovint és un problema temporal de Verisure: la integració ho continua intentant cada pocs minuts i es recupera sola si Verisure torna a acceptar-la. Si no és així, torna a iniciar la sessió: obre Configuració → Dispositius i serveis → Verisure OWA, obre el menú (⋮) de l'entrada i tria Reconfigura. Aquest avís desapareix quan una renovació o un inici de sessió funciona."
+        },
+        "cannot_reach_verisure": {
+            "title": "Home Assistant no pot connectar amb Verisure",
+            "description": "Fa almenys una hora que cap petició de Home Assistant a Verisure per a {username} no funciona. La integració ho continua intentant cada pocs minuts i es recupera sola quan Verisure torna a respondre. Comprova que l'app de Verisure funciona i que Home Assistant té connexió a internet. Si l'app de Verisure funciona i aquest avís continua, informa'n amb el registre a {url}. Aquest avís desapareix quan una petició a Verisure funciona."
+        }
+    },
+    "entity": {
+        "event": {
+            "activity": {
+                "name": "Activitat",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "armed": "Armat",
+                            "armed_with_exceptions": "Armat amb excepcions",
+                            "arming_failed": "Armament fallit",
+                            "disarmed": "Desarmat",
+                            "alarm": "Alarma",
+                            "alarm_resolved": "Alarma resolta",
+                            "tampering": "Manipulació",
+                            "sabotage": "Sabotatge",
+                            "image_request": "Petició d'imatge",
+                            "power_cut": "Tall de corrent",
+                            "power_restored": "Corrent restablert",
+                            "status_check": "Comprovació d'estat",
+                            "communication_failed": "Error de comunicació",
+                            "communication_restored": "Comunicació restablerta",
+                            "door_opened": "Porta oberta",
+                            "door_closed": "Porta tancada",
+                            "routine_executed": "Rutina executada",
+                            "tag_or_remote_activated": "Tag o comandament activat",
+                            "high_temperature": "Temperatura elevada",
+                            "unknown": "Esdeveniment desconegut"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

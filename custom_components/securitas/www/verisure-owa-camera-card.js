@@ -1,0 +1,545 @@
+/**
+ * Verisure OWA Camera Card
+ *
+ * Displays the latest image from a Verisure camera entity with:
+ *  - Auto-discovered refresh (capture) button in the top-right corner
+ *  - Image timestamp overlay (relative + absolute tooltip)
+ *  - Click to open the HA more-info dialog: for the auto-discovered
+ *    full-resolution entity if available, otherwise the thumbnail entity
+ *
+ * Card config:
+ *   type: custom:securitas-camera-card
+ *   entity: camera.sala             # thumbnail entity (required)
+ *   name: Sala                       # optional display name
+ *   name: Front Door   # optional — overrides the device name
+ */
+
+import { escHtml, formatTranslation } from "./verisure-owa-card-utils.js?v=a5e83573-5.10.0";
+
+// ── Translations ──────────────────────────────────────────────────────────────
+
+export const TRANSLATIONS = {
+  en: {
+    editor_entity: "Entity",
+    editor_name: "Name",
+    editor_name_placeholder: "Override friendly name",
+    entity_not_found: "Entity not found: {entity}",
+    ago_seconds: "{n}s ago",
+    ago_minutes: "{n} min ago",
+    ago_hours: "{n}h ago",
+    ago_days: "{n}d ago",
+    card_name: "Verisure Camera Card",
+    card_description: "Displays a Verisure camera image with capture trigger and timestamp.",
+    capture: "Capture",
+  },
+  es: {
+    editor_entity: "Entidad",
+    editor_name: "Nombre",
+    editor_name_placeholder: "Nombre personalizado",
+    entity_not_found: "Entidad no encontrada: {entity}",
+    ago_seconds: "hace {n}s",
+    ago_minutes: "hace {n} min",
+    ago_hours: "hace {n}h",
+    ago_days: "hace {n}d",
+    card_name: "Tarjeta de Cámara Verisure",
+    card_description: "Muestra la imagen de una cámara Verisure con captura y marca de tiempo.",
+    capture: "Capturar",
+  },
+  fr: {
+    editor_entity: "Entité",
+    editor_name: "Nom",
+    editor_name_placeholder: "Remplacer le nom",
+    entity_not_found: "Entité introuvable : {entity}",
+    ago_seconds: "il y a {n}s",
+    ago_minutes: "il y a {n} min",
+    ago_hours: "il y a {n}h",
+    ago_days: "il y a {n}j",
+    card_name: "Carte Caméra Verisure",
+    card_description: "Affiche l’image d’une caméra Verisure avec capture et horodatage.",
+    capture: "Capturer",
+  },
+  it: {
+    editor_entity: "Entità",
+    editor_name: "Nome",
+    editor_name_placeholder: "Nome personalizzato",
+    entity_not_found: "Entità non trovata: {entity}",
+    ago_seconds: "{n}s fa",
+    ago_minutes: "{n} min fa",
+    ago_hours: "{n}h fa",
+    ago_days: "{n}g fa",
+    card_name: "Scheda Camera Verisure",
+    card_description: "Mostra l’immagine di una camera Verisure con cattura e timestamp.",
+    capture: "Cattura",
+  },
+  pt: {
+    editor_entity: "Entidade",
+    editor_name: "Nome",
+    editor_name_placeholder: "Nome personalizado",
+    entity_not_found: "Entidade não encontrada: {entity}",
+    ago_seconds: "há {n}s",
+    ago_minutes: "há {n} min",
+    ago_hours: "há {n}h",
+    ago_days: "há {n}d",
+    card_name: "Cartão de Câmara Verisure",
+    card_description: "Mostra a imagem de uma câmara Verisure com captura e marca temporal.",
+    capture: "Capturar",
+  },
+  "pt-BR": {
+    editor_entity: "Entidade",
+    editor_name: "Nome",
+    editor_name_placeholder: "Substituir nome",
+    entity_not_found: "Entidade não encontrada: {entity}",
+    ago_seconds: "{n}s atrás",
+    ago_minutes: "{n} min atrás",
+    ago_hours: "{n}h atrás",
+    ago_days: "{n}d atrás",
+    card_name: "Cartão de Câmera Verisure",
+    card_description: "Exibe a imagem de uma câmera Verisure com captura e marca de tempo.",
+    capture: "Capturar",
+  },
+  ca: {
+    editor_entity: "Entitat",
+    editor_name: "Nom",
+    editor_name_placeholder: "Sobreescriu el nom",
+    entity_not_found: "Entitat no trobada: {entity}",
+    ago_seconds: "fa {n}s",
+    ago_minutes: "fa {n} min",
+    ago_hours: "fa {n}h",
+    ago_days: "fa {n}d",
+    card_name: "Targeta de Càmera Verisure",
+    card_description: "Mostra la imatge d’una càmera Verisure amb captura i marca de temps.",
+    capture: "Captura",
+  },
+};
+
+const _t = (lang, key, vars) => formatTranslation(lang, TRANSLATIONS, key, vars);
+
+// ── Editor ────────────────────────────────────────────────────────────────────
+
+// hass.entities exposes EntityRegistryDisplayEntry, which does NOT
+// include unique_id (only EntityRegistryEntry does, fetched via WS).
+// So we match on entity_id pattern + the integration's platform.
+// The (_\d+)? captures HA's auto-disambiguation suffix (_2, _3, ...)
+// when multiple installations produce the same default entity_id.
+const _FULL_IMAGE_ENTITY_ID_RE = /^camera\..*_full_image(_\d+)?$/;
+// The integration domain is `securitas` (a rename to `verisure_owa` was
+// considered but reversed before release, so no install ever uses it).
+const _OUR_PLATFORMS = new Set(["securitas"]);
+
+export function findFullImageEntityIds(hass) {
+  const ids = [];
+  for (const [eid, entry] of Object.entries(hass?.entities || {})) {
+    if (!_OUR_PLATFORMS.has(entry?.platform)) continue;
+    if (_FULL_IMAGE_ENTITY_ID_RE.test(eid)) ids.push(eid);
+  }
+  return ids;
+}
+
+// Card-picker suggestion hook: offer this card when the user selects one of our
+// camera entities (excluding the internal `_full_image` snapshot cameras).
+export function cameraEntitySuggestion(hass, entityId) {
+  if (!entityId.startsWith("camera.")) return null;
+  if (!_OUR_PLATFORMS.has(hass?.entities?.[entityId]?.platform)) return null;
+  if (_FULL_IMAGE_ENTITY_ID_RE.test(entityId)) return null;
+  return { config: { type: "custom:verisure-owa-camera-card", entity: entityId } };
+}
+
+class VerisureOwaCameraCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this._config = {};
+    this._hass = null;
+    // Cache the exclude list keyed to hass.entities identity — the editor's
+    // hass setter fires on every HA state change, but the entity registry
+    // changes far less often (HA replaces hass.entities atomically when it
+    // does).  Avoids re-walking the registry on every push.
+    this._fullImageIdsCache = null;
+    this._fullImageIdsRef = null;
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    const entityForm = this.shadowRoot.getElementById("entity-form");
+    if (entityForm) {
+      entityForm.hass = hass;
+      entityForm.schema = this._buildEntitySchema();
+    }
+  }
+
+  setConfig(config) {
+    this._config = { ...config };
+    if (!this.shadowRoot.getElementById("entity-form")) {
+      // First call — build the DOM once
+      this._render();
+    } else {
+      // Subsequent calls (HA bouncing config back) — update pickers in place,
+      // never touch the name textfield so focus is preserved while typing
+      const entityForm = this.shadowRoot.getElementById("entity-form");
+      if (entityForm) entityForm.data = { entity: this._config.entity || "" };
+    }
+  }
+
+  _buildEntitySchema() {
+    if (this._fullImageIdsRef !== this._hass?.entities) {
+      this._fullImageIdsCache = findFullImageEntityIds(this._hass);
+      this._fullImageIdsRef = this._hass?.entities;
+    }
+    const entitySelector = { domain: "camera" };
+    if (this._fullImageIdsCache.length) {
+      entitySelector.exclude_entities = this._fullImageIdsCache;
+    }
+    return [{ name: "entity", selector: { entity: entitySelector } }];
+  }
+
+  _render() {
+    const lang = this._hass?.language || "en";
+    this.shadowRoot.innerHTML = `
+      <style>
+        .editor { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+        ha-textfield { display: block; width: 100%; }
+      </style>
+      <div class="editor">
+        <ha-form id="entity-form"></ha-form>
+        <div id="name-slot"></div>
+      </div>`;
+
+    // Entity picker — camera domain, full-image variants excluded.
+    const entityForm = this.shadowRoot.getElementById("entity-form");
+    entityForm.hass = this._hass;
+    entityForm.data = { entity: this._config.entity || "" };
+    entityForm.schema = this._buildEntitySchema();
+    entityForm.computeLabel = () => _t(lang, "editor_entity");
+    entityForm.addEventListener("value-changed", (e) => {
+      const newEntity = e.detail.value?.entity;
+      if (newEntity !== undefined) {
+        this._config = { ...this._config, entity: newEntity };
+        this._fireChanged();
+      }
+    });
+
+    // Name field — ha-textfield with input event (no value-changed → no re-render cycle)
+    const nameTf = document.createElement("ha-textfield");
+    nameTf.label = _t(lang, "editor_name");
+    nameTf.value = this._config.name || "";
+    nameTf.placeholder = _t(lang, "editor_name_placeholder");
+    nameTf.addEventListener("input", (e) => {
+      const val = e.target.value;
+      if (val.trim()) {
+        this._config = { ...this._config, name: val };
+      } else {
+        const { name: _, ...rest } = this._config;
+        this._config = rest;
+      }
+      this._fireChanged();
+    });
+    this.shadowRoot.getElementById("name-slot").appendChild(nameTf);
+  }
+
+  _fireChanged() {
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: this._config },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+}
+
+// ── Main Card ─────────────────────────────────────────────────────────────────
+
+class VerisureOwaCameraCard extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this._config = {};
+    this._hass = null;
+    this._fullEntityId = null;
+    this._refreshing = false;
+    this._fallbackTimer = null;
+    // Cache for entity lookups indexed by device_id. Invalidated whenever
+    // hass.entities is a new object (HA replaces it atomically on changes).
+    this._entitiesIndex = null;
+    this._entitiesRef = null;
+  }
+
+  setConfig(config) {
+    if (!config.entity) throw new Error("'entity' is required");
+    this._config = { ...config };
+  }
+
+  set hass(hass) {
+    const prevToken = this._hass?.states[this._config.entity]?.attributes?.access_token;
+    const newToken = hass?.states[this._config.entity]?.attributes?.access_token;
+    this._hass = hass;
+    this._fullEntityId = this._findFullEntity(hass, this._config.entity);
+    // Clear spinner when the image token rotates (new image available) and
+    // the capture is no longer in progress (capturing=false means final image).
+    const capturing = hass?.states[this._config.entity]?.attributes?.capturing;
+    if (this._refreshing && newToken && newToken !== prevToken && !capturing) {
+      clearTimeout(this._fallbackTimer);
+      this._refreshing = false;
+    }
+    this._render();
+  }
+
+  _render() {
+    const entityId = this._config.entity;
+    const lang = this._hass?.language || "en";
+    const stateObj = this._hass?.states[entityId];
+
+    if (!stateObj) {
+      this.shadowRoot.innerHTML = `
+      <ha-card>
+        <div style="padding:16px;color:var(--error-color)">
+          ${escHtml(_t(lang, "entity_not_found", { entity: entityId }))}
+        </div>
+      </ha-card>`;
+      return;
+    }
+
+    const token = stateObj.attributes.access_token || "";
+    const imgUrl = `/api/camera_proxy/${entityId}?token=${token}`;
+    const entityEntry = this._hass.entities?.[entityId];
+    const deviceEntry = entityEntry?.device_id
+      ? this._hass.devices?.[entityEntry.device_id]
+      : null;
+    const deviceName = deviceEntry
+      ? deviceEntry.name_by_user || deviceEntry.name
+      : null;
+    const name = this._config.name || deviceName || stateObj.attributes.friendly_name || entityId;
+    const timestamp = stateObj.attributes.image_timestamp;
+    const { relative, absolute } = this._formatTimestamp(timestamp, lang);
+    // Only use the full entity if it has a real image (non-null timestamp).
+    // PIR cameras may not support full-resolution images.
+    const fullState = this._fullEntityId ? this._hass?.states[this._fullEntityId] : null;
+    const hasFull = !!fullState?.attributes?.image_timestamp;
+
+    this.shadowRoot.innerHTML = `
+    <style>
+      ha-card {
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+        padding: 0;
+      }
+      .img-wrapper {
+        width: 100%;
+        display: block;
+        position: relative;
+      }
+      .camera-img {
+        width: 100%;
+        display: block;
+        object-fit: cover;
+      }
+      .overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 8px 12px;
+        background: linear-gradient(transparent, rgba(0,0,0,0.55));
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        pointer-events: none;
+      }
+      .name {
+        color: #fff;
+        font-size: 0.95em;
+        font-weight: 500;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+      }
+      .timestamp {
+        color: rgba(255,255,255,0.85);
+        font-size: 0.8em;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+        cursor: default;
+        pointer-events: all;
+      }
+      .refresh-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: rgba(0,0,0,0.45);
+        border: none;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #fff;
+        transition: background 0.2s;
+        z-index: 2;
+      }
+      .refresh-btn:hover { background: rgba(0,0,0,0.65); }
+      .refresh-btn[hidden] { display: none; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .refresh-btn.spinning ha-icon { animation: spin 1s linear infinite; }
+    </style>
+    <ha-card>
+      <div class="img-wrapper" id="img-wrapper">
+        <img class="camera-img" src="${escHtml(imgUrl)}" alt="${escHtml(name)}" />
+        <div class="overlay">
+          <span class="name">${escHtml(name)}</span>
+          ${timestamp ? `<span class="timestamp" title="${escHtml(absolute)}">${escHtml(relative)}</span>` : ""}
+        </div>
+        <button class="refresh-btn${this._refreshing ? " spinning" : ""}" id="refresh-btn" aria-label="${escHtml(_t(lang, "capture"))}" title="${escHtml(_t(lang, "capture"))}">
+          <ha-icon icon="mdi:refresh"></ha-icon>
+        </button>
+      </div>
+    </ha-card>`;
+
+    // Click image → more-info for full entity (if configured) or thumbnail entity
+    this.shadowRoot.getElementById("img-wrapper").addEventListener("click", (e) => {
+      if (e.target.closest("#refresh-btn")) return;
+      this._openMoreInfo(hasFull ? this._fullEntityId : this._config.entity);
+    });
+
+    // Refresh button
+    const refreshBtn = this.shadowRoot.getElementById("refresh-btn");
+    if (refreshBtn) {
+      refreshBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this._handleRefresh();
+      });
+    }
+  }
+
+  _formatTimestamp(timestamp, lang) {
+    if (!timestamp) return { relative: "", absolute: "" };
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return { relative: timestamp, absolute: timestamp };
+    const absolute = date.toLocaleString(lang);
+    const diffMs = Date.now() - date.getTime();
+    const diffSec = Math.round(diffMs / 1000);
+    if (diffSec < 60) return { relative: _t(lang, "ago_seconds", { n: diffSec }), absolute };
+    const diffMin = Math.round(diffSec / 60);
+    if (diffMin < 60) return { relative: _t(lang, "ago_minutes", { n: diffMin }), absolute };
+    const diffHr = Math.round(diffMin / 60);
+    if (diffHr < 24) return { relative: _t(lang, "ago_hours", { n: diffHr }), absolute };
+    return { relative: _t(lang, "ago_days", { n: Math.round(diffHr / 24) }), absolute };
+  }
+
+  _openMoreInfo(entityId) {
+    this.dispatchEvent(new CustomEvent("hass-more-info", {
+      detail: { entityId: entityId || this._config.entity },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  async _handleRefresh() {
+    clearTimeout(this._fallbackTimer);
+    if (this._refreshing) return;
+    this._refreshing = true;
+    // Update just the button class — avoid full re-render which destroys the
+    // focused element and causes the page to jump to the top.
+    this.shadowRoot.getElementById("refresh-btn")?.classList.add("spinning");
+    try {
+      await this._hass.callService("verisure_owa", "capture_image", {
+        entity_id: this._config.entity,
+      });
+    } finally {
+      // Fallback: clear spinner after 15s if no token rotation arrives
+      this._fallbackTimer = setTimeout(() => {
+        if (this._refreshing) {
+          this._refreshing = false;
+          this._render();
+        }
+      }, 15000);
+    }
+  }
+
+  _entitiesByDeviceId(hass) {
+    if (this._entitiesIndex && this._entitiesRef === hass.entities) {
+      return this._entitiesIndex;
+    }
+    const index = new Map();
+    for (const [eid, entry] of Object.entries(hass.entities || {})) {
+      if (!entry?.device_id) continue;
+      let bucket = index.get(entry.device_id);
+      if (!bucket) {
+        bucket = [];
+        index.set(entry.device_id, bucket);
+      }
+      bucket.push(eid);
+    }
+    this._entitiesIndex = index;
+    this._entitiesRef = hass.entities;
+    return index;
+  }
+
+  // Camera sub-device holds exactly two camera entities (thumbnail +
+  // full); the "full" one is the other camera on the same device.  No
+  // entity_id / unique_id pattern matching needed — both names break
+  // on renames or HA's auto-disambiguation.
+  _findFullEntity(hass, cameraEntityId) {
+    if (!hass?.entities || !cameraEntityId) return null;
+    const cameraEntry = hass.entities[cameraEntityId];
+    if (!cameraEntry?.device_id) return null;
+    const bucket = this._entitiesByDeviceId(hass).get(cameraEntry.device_id) || [];
+    for (const eid of bucket) {
+      if (eid === cameraEntityId) continue;
+      if (eid.startsWith("camera.")) return eid;
+    }
+    return null;
+  }
+
+  getCardSize() { return 3; }
+
+  static getConfigElement() {
+    return document.createElement("verisure-owa-camera-card-editor");
+  }
+
+  static getStubConfig(hass) {
+    const fullImageIds = new Set(findFullImageEntityIds(hass));
+    const entity = Object.keys(hass?.states || {}).find(
+      (e) => e.startsWith("camera.") && !fullImageIds.has(e),
+    );
+    return { entity: entity || "" };
+  }
+}
+
+// ── Registration ──────────────────────────────────────────────────────────────
+
+/* v8 ignore start -- defensive duplicate-registration guards;
+   the "already defined" branches can't be hit in single-process tests. */
+
+// Canonical (post-v5) tags. After Phase H this is the name HACS will show in the picker.
+if (!customElements.get("verisure-owa-camera-card")) {
+  customElements.define("verisure-owa-camera-card", VerisureOwaCameraCard);
+}
+if (!customElements.get("verisure-owa-camera-card-editor")) {
+  customElements.define("verisure-owa-camera-card-editor", VerisureOwaCameraCardEditor);
+}
+
+// `securitas-camera-card` tag-name alias for `verisure-owa-camera-card`.
+// Kept registered indefinitely — both names are equal-weight, no
+// deprecation. The card picker only offers the verisure-owa form.
+function _makeLegacyShim(canonicalClass) {
+  return class extends canonicalClass {};
+}
+
+if (!customElements.get("securitas-camera-card")) {
+  customElements.define("securitas-camera-card",
+    _makeLegacyShim(VerisureOwaCameraCard));
+}
+if (!customElements.get("securitas-camera-card-editor")) {
+  customElements.define("securitas-camera-card-editor",
+    _makeLegacyShim(VerisureOwaCameraCardEditor));
+}
+
+window.customCards = window.customCards || [];
+if (!window.customCards.find(c => c.type === "verisure-owa-camera-card")) {
+  window.customCards.push({
+    type: "verisure-owa-camera-card",
+    name: TRANSLATIONS.en.card_name,
+    description: TRANSLATIONS.en.card_description,
+    preview: false,
+    getEntitySuggestion: cameraEntitySuggestion,
+  });
+}
+/* v8 ignore stop */

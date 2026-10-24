@@ -1,0 +1,309 @@
+"""Command resolver for Verisure OWA alarm state transitions.
+
+Models alarm state as three independent axes (interior mode + perimeter
++ annex) and resolves transitions into command sequences with runtime
+fallback discovery.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+from dataclasses import dataclass
+
+from .const import VerisureOwaState
+from .models import (
+    PROTO_TO_STATE,
+    AlarmState,
+    AnnexMode,
+    InteriorMode,
+    PerimeterMode,
+    ProtoCode,
+)
+
+# Re-export for backward compatibility
+PROTO_TO_ALARM_STATE: dict[str, AlarmState] = {
+    code.value: state for code, state in PROTO_TO_STATE.items()
+}
+ALARM_STATE_TO_PROTO: dict[AlarmState, str] = {
+    state: code.value for code, state in PROTO_TO_STATE.items()
+}
+
+# VerisureOwaState (config/UI) -> AlarmState (resolver)
+VERISURE_OWA_STATE_TO_ALARM_STATE: dict[VerisureOwaState, AlarmState] = {
+    VerisureOwaState.DISARMED: PROTO_TO_STATE[ProtoCode.DISARMED],
+    VerisureOwaState.PARTIAL_DAY: PROTO_TO_STATE[ProtoCode.PARTIAL_DAY],
+    VerisureOwaState.PARTIAL_NIGHT: PROTO_TO_STATE[ProtoCode.PARTIAL_NIGHT],
+    VerisureOwaState.TOTAL: PROTO_TO_STATE[ProtoCode.TOTAL],
+    VerisureOwaState.PERI_ONLY: PROTO_TO_STATE[ProtoCode.PERIMETER_ONLY],
+    VerisureOwaState.PARTIAL_DAY_PERI: PROTO_TO_STATE[ProtoCode.PARTIAL_DAY_PERIMETER],
+    VerisureOwaState.PARTIAL_NIGHT_PERI: PROTO_TO_STATE[
+        ProtoCode.PARTIAL_NIGHT_PERIMETER
+    ],
+    VerisureOwaState.TOTAL_PERI: PROTO_TO_STATE[ProtoCode.TOTAL_PERIMETER],
+    # Annex variants — the four known letters reuse PROTO_TO_STATE entries
+    VerisureOwaState.ANNEX_ONLY: PROTO_TO_STATE[ProtoCode.ANNEX_ONLY],
+    VerisureOwaState.PARTIAL_DAY_ANNEX: PROTO_TO_STATE[ProtoCode.PARTIAL_DAY_ANNEX],
+    VerisureOwaState.PARTIAL_NIGHT_ANNEX: PROTO_TO_STATE[ProtoCode.PARTIAL_NIGHT_ANNEX],
+    VerisureOwaState.TOTAL_ANNEX: PROTO_TO_STATE[ProtoCode.TOTAL_ANNEX],
+    # Perimeter+annex combinations (no proto code yet — discovered via Custom Override)
+    VerisureOwaState.PERI_ANNEX: AlarmState(
+        interior=InteriorMode.OFF, perimeter=PerimeterMode.ON, annex=AnnexMode.ON
+    ),
+    VerisureOwaState.PARTIAL_DAY_PERI_ANNEX: AlarmState(
+        interior=InteriorMode.DAY, perimeter=PerimeterMode.ON, annex=AnnexMode.ON
+    ),
+    VerisureOwaState.PARTIAL_NIGHT_PERI_ANNEX: AlarmState(
+        interior=InteriorMode.NIGHT, perimeter=PerimeterMode.ON, annex=AnnexMode.ON
+    ),
+    VerisureOwaState.TOTAL_PERI_ANNEX: AlarmState(
+        interior=InteriorMode.TOTAL, perimeter=PerimeterMode.ON, annex=AnnexMode.ON
+    ),
+}
+
+
+@dataclass
+class CommandStep:
+    """A single logical operation with ordered command alternatives.
+
+    The caller tries each command in order, skipping any already known
+    to be unsupported. If all commands fail, the step has failed.
+
+    Multi-step commands use + separator (e.g. "ARM1+PERI1" means
+    send ARM1 then PERI1 as separate sequential API calls).
+    """
+
+    commands: list[str]
+
+
+# Interior arm commands: InteriorMode -> command string
+_INTERIOR_ARM: dict[InteriorMode, str] = {
+    InteriorMode.DAY: "ARMDAY1",
+    InteriorMode.NIGHT: "ARMNIGHT1",
+    InteriorMode.TOTAL: "ARM1",
+}
+
+# Combined arm commands: interior mode -> [preferred compound commands]
+# Order matters: ARMINTEXT1 first (Spanish WAF-safe), then ARM1PERI1 (Italian)
+_COMBINED_ARM: dict[InteriorMode, list[str]] = {
+    InteriorMode.TOTAL: ["ARMINTEXT1", "ARM1PERI1"],
+    InteriorMode.DAY: ["ARMDAY1PERI1"],
+    InteriorMode.NIGHT: ["ARMNIGHT1PERI1"],
+}
+
+
+class CommandResolver:
+    """Resolves alarm state transitions into command sequences.
+
+    Tracks which commands are unsupported by the panel (in-memory,
+    resets on HA restart) and skips them in future resolutions.
+    """
+
+    def __init__(
+        self,
+        has_peri: bool,
+        unsupported: Iterable[str] = (),
+    ) -> None:
+        self._has_peri = has_peri
+        self._unsupported: set[str] = set(unsupported)
+
+    def update_capabilities(self, *, has_peri: bool) -> None:
+        """Refresh capability flags after late capability detection.
+
+        Capability detection can be deferred (e.g. transient API errors at
+        startup that succeed on retry). The resolver is constructed before
+        that retry, so the entity calls this on every coordinator update so
+        the resolver picks up newly-populated flags.
+        """
+        self._has_peri = has_peri
+
+    def mark_unsupported(self, command: str) -> None:
+        """Record that a command is not supported by this panel."""
+        self._unsupported.add(command)
+
+    @property
+    def unsupported(self) -> frozenset[str]:
+        """Return the set of unsupported commands."""
+        return frozenset(self._unsupported)
+
+    def can_reach_interior(self, mode: InteriorMode) -> bool:
+        """Return True if the Interior sub-panel can reach ``mode``.
+
+        The Interior sub-panel only ever drives the interior axis — it
+        preserves the perimeter state. resolve()'s "only interior changes"
+        branch (and the "disarm-then-rearm" branch when current interior
+        is non-OFF + peri is OFF) calls ``_INTERIOR_ARM[mode]`` without
+        any fallback, so if that basic command is rejected, the mode is
+        unreachable from this entity regardless of has_peri.
+
+        We deliberately don't try the compound (``ARMNIGHT1PERI1`` etc.)
+        as a fallback: it's only used when both axes change in one step,
+        which the sub-panel never asks for. Considering the compound as
+        a fallback here would keep the rejected button visible even
+        though pressing it would always re-issue the failing basic
+        command.
+        """
+        if mode == InteriorMode.OFF:
+            return True  # disarm always available
+        return _INTERIOR_ARM[mode] not in self._unsupported
+
+    def can_reach_perimeter(self, mode: PerimeterMode) -> bool:
+        """Return True if the Perimeter sub-panel can reach ``mode``.
+
+        The Perimeter sub-panel only drives the perimeter axis (preserving
+        interior). The arm-perimeter wire command on the standalone path
+        is ``PERI1`` (see ``_resolve_arm``'s "only perimeter changes"
+        branch). If that's rejected the mode is unreachable from this
+        entity, mirroring ``can_reach_interior``'s contract: disarm always
+        available, arm-on gated by the resolver's unsupported set.
+        """
+        if mode == PerimeterMode.OFF:
+            return True  # disarm always available
+        return "PERI1" not in self._unsupported
+
+    def can_reach_annex(self, mode: AnnexMode) -> bool:
+        """Return True if the Annex sub-panel can reach ``mode``.
+
+        The Annex sub-panel drives the annex axis with the explicit
+        ``ARMANNEX1`` / ``DARMANNEX1`` commands. If ``ARMANNEX1`` is
+        rejected the mode is unreachable; disarm stays available.
+        """
+        if mode == AnnexMode.OFF:
+            return True  # disarm always available
+        return "ARMANNEX1" not in self._unsupported
+
+    def _resolve_annex(
+        self, current_annex: AnnexMode, target_annex: AnnexMode
+    ) -> list[CommandStep]:
+        """Resolve a pure-annex transition (interior + peri both unchanged)."""
+        if current_annex == target_annex:
+            return []
+        if target_annex == AnnexMode.ON:
+            return [CommandStep(commands=["ARMANNEX1"])]
+        return [CommandStep(commands=["DARMANNEX1"])]
+
+    def resolve_disarm_only(
+        self, *, interior: bool, perimeter: bool, annex: bool
+    ) -> list[CommandStep]:
+        """Return disarm-only command steps for the requested axes.
+
+        Used when the panel's current state is unknown (never polled, or an
+        unmodeled proto code like 'N' after a central-station reset, #550).
+        A disarm command is unconditional — ``DARM1`` / ``DARM1DARMPERI`` /
+        ``DARMANNEX1`` clear their axis regardless of the current state — so
+        we can safely disarm the requested axes without knowing it. Only
+        ``DARM*`` commands are emitted; axes that weren't requested are left
+        untouched (no arm, no re-arm).
+        """
+        steps: list[CommandStep] = []
+        if interior or perimeter:
+            # Synthesize a "these axes are armed" current so _resolve_disarm
+            # picks the right DARM command(s) for this panel's capabilities.
+            synthetic = AlarmState(
+                interior=InteriorMode.TOTAL if interior else InteriorMode.OFF,
+                perimeter=PerimeterMode.ON if perimeter else PerimeterMode.OFF,
+            )
+            steps.extend(self._resolve_disarm(synthetic))
+        if annex:
+            steps.extend(self._resolve_annex(AnnexMode.ON, AnnexMode.OFF))
+        return steps
+
+    def resolve(self, current: AlarmState, target: AlarmState) -> list[CommandStep]:
+        """Return ordered command steps to transition from current to target state."""
+        if current == target:
+            return []
+
+        annex_changed = current.annex != target.annex
+        interior_or_peri_changed = (
+            current.interior != target.interior or current.perimeter != target.perimeter
+        )
+
+        # Pure-annex fast-path
+        if annex_changed and not interior_or_peri_changed:
+            return self._resolve_annex(current.annex, target.annex)
+
+        steps: list[CommandStep] = []
+
+        interior_changes = current.interior != target.interior
+
+        # Full disarm (target is off/off on the 2-axis space)
+        if (
+            target.interior == InteriorMode.OFF
+            and target.perimeter == PerimeterMode.OFF
+        ):
+            steps.extend(self._resolve_disarm(current))
+        # Mode change: need to disarm first, then arm new mode
+        elif interior_changes and current.interior != InteriorMode.OFF:
+            steps.extend(self._resolve_disarm(current))
+            steps.extend(
+                self._resolve_arm(
+                    AlarmState(interior=InteriorMode.OFF, perimeter=PerimeterMode.OFF),
+                    target,
+                )
+            )
+        else:
+            # Arming from current state
+            steps.extend(self._resolve_arm(current, target))
+
+        # Append annex transition if needed (multi-axis case)
+        if annex_changed:
+            steps.extend(self._resolve_annex(current.annex, target.annex))
+
+        return steps
+
+    def _resolve_disarm(self, current: AlarmState) -> list[CommandStep]:
+        """Resolve disarm-to-off commands based on what's currently armed."""
+        has_interior = current.interior != InteriorMode.OFF
+        has_peri = current.perimeter == PerimeterMode.ON
+
+        if not has_interior and not has_peri:
+            return []
+
+        if not self._has_peri or not has_peri:
+            return [CommandStep(commands=["DARM1"])]
+
+        if has_interior and has_peri:
+            cmds = self._filter_unsupported(["DARM1DARMPERI", "DARM1"])
+            return [CommandStep(commands=cmds)]
+
+        # Only perimeter armed
+        cmds = self._filter_unsupported(["DARMPERI", "DARM1"])
+        return [CommandStep(commands=cmds)]
+
+    def _resolve_arm(
+        self, current: AlarmState, target: AlarmState
+    ) -> list[CommandStep]:
+        """Resolve arm commands from current to target state."""
+        interior_changes = current.interior != target.interior
+        peri_changes = current.perimeter != target.perimeter
+
+        if not interior_changes and not peri_changes:
+            return []
+
+        # Only perimeter changes
+        if not interior_changes and peri_changes:
+            if target.perimeter == PerimeterMode.ON:
+                return [CommandStep(commands=["PERI1"])]
+            cmds = self._filter_unsupported(["DARMPERI", "DARM1"])
+            return [CommandStep(commands=cmds)]
+
+        # Only interior changes
+        if interior_changes and not peri_changes:
+            arm_cmd = _INTERIOR_ARM[target.interior]
+            return [CommandStep(commands=[arm_cmd])]
+
+        # Both axes change: arm interior + enable perimeter
+        if target.perimeter == PerimeterMode.ON and target.interior != InteriorMode.OFF:
+            arm_cmd = _INTERIOR_ARM[target.interior]
+            combined = _COMBINED_ARM.get(target.interior, [])
+            all_cmds = [*list(combined), f"{arm_cmd}+PERI1"]
+            cmds = self._filter_unsupported(all_cmds)
+            return [CommandStep(commands=cmds)]
+
+        if target.perimeter == PerimeterMode.ON:
+            return [CommandStep(commands=["PERI1"])]
+
+        return []
+
+    def _filter_unsupported(self, commands: list[str]) -> list[str]:
+        """Remove commands known to be unsupported."""
+        return [c for c in commands if c not in self._unsupported]

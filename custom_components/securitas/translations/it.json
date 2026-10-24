@@ -1,0 +1,363 @@
+{
+    "config": {
+        "error": {
+            "account_blocked": "Il tuo account è stato bloccato da Verisure. Usa 'Password dimenticata' sul sito Verisure per reimpostare la password e sbloccare il tuo account, poi riprova",
+            "invalid_auth": "Nome utente o password non validi",
+            "cannot_connect": "Impossibile connettersi a Verisure",
+            "invalid_otp": "Codice di verifica non valido",
+            "otp_expired": "Il codice di verifica è scaduto — verrà inviato un nuovo codice",
+            "otp_send_failed": "Invio del codice di verifica non riuscito — riprova",
+            "service_error": "Errore del servizio Verisure: {error}"
+        },
+        "abort": {
+            "already_configured": "Il servizio è già configurato",
+            "reauth_successful": "Riautenticazione riuscita",
+            "reconfigure_successful": "Nuovo accesso riuscito",
+            "no_refresh_token": "Il login è riuscito ma Verisure non ha restituito un token di aggiornamento. L'integrazione non può salvare le credenziali in modo sicuro. Riprova più tardi o segnala il problema se persiste.",
+            "installation_not_on_account": "Questo account Verisure non vede l'installazione {number}. Accedi con un account che vi abbia accesso.",
+            "signed_in_again_elsewhere": "Mentre questa finestra eseguiva l'accesso, per questa voce è stato eseguito di nuovo l'accesso da un'altra finestra, quindi questo accesso non è stato salvato.",
+            "account_signed_in_again_elsewhere": "Mentre questa finestra eseguiva l'accesso, per questo account Verisure è stato eseguito di nuovo l'accesso dalla finestra di un'altra installazione, quindi questo accesso non è stato salvato. Se questa installazione non riesce ancora a connettersi, esegui di nuovo l'accesso.",
+            "already_in_progress": "È già in corso un'altra configurazione o un altro accesso per questa installazione."
+        },
+        "step": {
+            "reauth_confirm": {
+                "title": "Riautenticazione Verisure",
+                "description": "La sessione è scaduta. Inserisci nuovamente la password per riconnetterti.",
+                "data": {
+                    "username": "Nome utente",
+                    "password": "Password",
+                    "keep_password": "Conserva la mia password così l'integrazione può accedere di nuovo da sola"
+                },
+                "data_description": {
+                    "keep_password": "Se selezionata, la password viene salvata non cifrata nei file di configurazione di Home Assistant, dove chiunque possa leggere quei file o un loro backup può leggerla. Lasciala deselezionata per conservare solo l'accesso salvato, che non è la tua password e quindi non serve a nulla altrove dove usi quella password."
+                }
+            },
+            "reconfigure": {
+                "title": "Accedi di nuovo a Verisure",
+                "description": "Inserisci la password di Verisure per ottenere un nuovo accesso. Usa questa opzione quando l'integrazione non riesce a connettersi e non ti ha chiesto di accedere di nuovo.",
+                "data": {
+                    "username": "Nome utente",
+                    "password": "Password",
+                    "keep_password": "Conserva la mia password così l'integrazione può accedere di nuovo da sola"
+                },
+                "data_description": {
+                    "keep_password": "Se selezionata, la password viene salvata non cifrata nei file di configurazione di Home Assistant, dove chiunque possa leggere quei file o un loro backup può leggerla. Lasciala deselezionata per conservare solo l'accesso salvato, che non è la tua password e quindi non serve a nulla altrove dove usi quella password."
+                }
+            },
+            "user": {
+                "data": {
+                    "country": "Codice paese",
+                    "username": "Nome utente",
+                    "password": "Password",
+                    "keep_password": "Conserva la mia password così l'integrazione può accedere di nuovo da sola"
+                },
+                "data_description": {
+                    "keep_password": "Se selezionata, la password viene salvata non cifrata nei file di configurazione di Home Assistant, dove chiunque possa leggere quei file o un loro backup può leggerla. Lasciala deselezionata per conservare solo l'accesso salvato, che non è la tua password e quindi non serve a nulla altrove dove usi quella password."
+                },
+                "description": "Accedi a Verisure.",
+                "title": "Accesso"
+            },
+            "phone_list": {
+                "description": "A quale numero di telefono dobbiamo inviare il codice via SMS?",
+                "title": "Verisure 2FA",
+                "data": {
+                    "phones": "Numero di telefono"
+                }
+            },
+            "otp_challenge": {
+                "description": "Inserisci il codice ricevuto sul tuo telefono",
+                "title": "Verisure 2FA"
+            },
+            "select_installation": {
+                "title": "Seleziona installazione",
+                "description": "Seleziona l'installazione da configurare.",
+                "data": {
+                    "installation": "Installazione"
+                }
+            },
+            "options": {
+                "title": "Opzioni per {installation_name}",
+                "description": "Configura le opzioni dell'allarme.",
+                "sections": {
+                    "activity": {
+                        "name": "Registro attività ed eventi",
+                        "data": {
+                            "enable_activity_polling": "Interroga il registro attività una volta al minuto in background (per le automazioni basate su eventi)"
+                        }
+                    },
+                    "advanced": {
+                        "name": "Avanzato",
+                        "data": {
+                            "scan_interval": "Intervallo di aggiornamento in secondi (0 disattiva gli aggiornamenti automatici)",
+                            "delay_check_operation": "Ritardo tra le richieste API (sec)",
+                            "operation_poll_timeout": "Timeout di conferma operazione (secondi)"
+                        },
+                        "data_description": {
+                            "operation_poll_timeout": "Per quanto tempo attendere che la centrale confermi un'azione di inserimento/disinserimento. Aumentalo se ricevi avvisi di timeout."
+                        }
+                    },
+                    "pin": {
+                        "name": "Codice PIN per disattivare",
+                        "data": {
+                            "code": "Codice PIN (lasciare vuoto per non usare un PIN)",
+                            "code_arm_required": "Richiedere anche il codice PIN (se presente) per attivare l'allarme",
+                            "lock_code_required": "Richiedere anche il codice PIN (se presente) per le operazioni sulla serratura"
+                        }
+                    },
+                    "notifications": {
+                        "name": "Notifiche di attivazione forzata",
+                        "data": {
+                            "notify_group": "Servizio di notifica per eccezioni di attivazione (es. mobile_app_phone)",
+                            "force_arm_notifications": "Notifiche integrate di attivazione forzata (disattivare per usare le proprie automazioni)",
+                            "auto_force_arm": "Mostra una casella di attivazione forzata automatica nei controlli dell'allarme"
+                        },
+                        "data_description": {
+                            "auto_force_arm": "Quando abilitata, la finestra di dettaglio dell'allarme e una scheda Mosaico (Tile) con le Modalità di allarme e la funzione Verisure OWA Open Sensors (e la scheda dell'allarme deprecata) mostrano una casella che attiva forzatamente l'allarme in automatico ignorando porte/finestre aperte, invece di attendere la conferma. Agisce solo su un'attivazione avviata dai pulsanti accanto. La scelta viene ricordata per dispositivo nel browser. Lascia disattivato se la tua centrale non supporta l'attivazione forzata."
+                        }
+                    },
+                    "subpanels": {
+                        "name": "Sotto-pannelli aggiuntivi",
+                        "data": {
+                            "enable_perimeter_panel": "Attiva pannello di controllo solo Perimetrale",
+                            "enable_annex_panel": "Attiva pannello di controllo solo Annesso",
+                            "enable_interior_panel": "Attiva pannello di controllo solo Interno"
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "title": "Mappatura degli stati di allarme",
+                "description": "Queste associazioni si applicano solo al pannello principale. Associa ogni azione di allarme di Home Assistant a una modalità di allarme Verisure; lascia un campo vuoto per nascondere quel pulsante.{subpanels_note}",
+                "data": {
+                    "map_home": "Casa",
+                    "map_away": "Fuori casa",
+                    "map_night": "Notte",
+                    "map_vacation": "Vacanza",
+                    "map_custom": "Personalizzato"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "sections": {
+                    "activity": {
+                        "name": "Registro attività ed eventi",
+                        "data": {
+                            "enable_activity_polling": "Interroga il registro attività una volta al minuto in background (per le automazioni basate su eventi)"
+                        }
+                    },
+                    "sign_in": {
+                        "name": "Accesso",
+                        "description": "Con questa casella spuntata, l'integrazione conserva la tua password nei file di configurazione di Home Assistant per poter accedere di nuovo da sola. Se Verisure ha rifiutato la password conservata, è già stata rimossa: accedi di nuovo con Riconfigura per conservarne una nuova.",
+                        "data": {
+                            "keep_password": "Conserva la mia password così l'integrazione può accedere di nuovo da sola"
+                        },
+                        "data_description": {
+                            "keep_password": "Deseleziona e salva per eliminare subito la password conservata, senza accedere. Per conservare di nuovo la password, usa Riconfigura, dove la digiti."
+                        }
+                    },
+                    "advanced": {
+                        "name": "Avanzato",
+                        "data": {
+                            "scan_interval": "Intervallo di aggiornamento in secondi (0 disattiva gli aggiornamenti automatici)",
+                            "delay_check_operation": "Ritardo tra le richieste API (sec)",
+                            "operation_poll_timeout": "Timeout di conferma operazione (secondi)"
+                        },
+                        "data_description": {
+                            "operation_poll_timeout": "Per quanto tempo attendere che la centrale confermi un'azione di inserimento/disinserimento. Aumentalo se ricevi avvisi di timeout."
+                        }
+                    },
+                    "pin": {
+                        "name": "Codice PIN per disattivare",
+                        "data": {
+                            "code": "Codice PIN (lasciare vuoto per non usare un PIN)",
+                            "code_arm_required": "Richiedere anche il codice PIN (se presente) per attivare l'allarme",
+                            "lock_code_required": "Richiedere anche il codice PIN (se presente) per le operazioni sulla serratura"
+                        }
+                    },
+                    "notifications": {
+                        "name": "Notifiche di attivazione forzata",
+                        "data": {
+                            "notify_group": "Servizio di notifica per eccezioni di attivazione (es. mobile_app_phone)",
+                            "force_arm_notifications": "Notifiche integrate di attivazione forzata (disattivare per usare le proprie automazioni)",
+                            "auto_force_arm": "Mostra una casella di attivazione forzata automatica nei controlli dell'allarme"
+                        },
+                        "data_description": {
+                            "auto_force_arm": "Quando abilitata, la finestra di dettaglio dell'allarme e una scheda Mosaico (Tile) con le Modalità di allarme e la funzione Verisure OWA Open Sensors (e la scheda dell'allarme deprecata) mostrano una casella che attiva forzatamente l'allarme in automatico ignorando porte/finestre aperte, invece di attendere la conferma. Agisce solo su un'attivazione avviata dai pulsanti accanto. La scelta viene ricordata per dispositivo nel browser. Lascia disattivato se la tua centrale non supporta l'attivazione forzata."
+                        }
+                    },
+                    "subpanels": {
+                        "name": "Sotto-pannelli aggiuntivi",
+                        "data": {
+                            "enable_perimeter_panel": "Attiva pannello di controllo solo Perimetrale",
+                            "enable_annex_panel": "Attiva pannello di controllo solo Annesso",
+                            "enable_interior_panel": "Attiva pannello di controllo solo Interno"
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "title": "Mappatura degli stati di allarme",
+                "description": "Queste associazioni si applicano solo al pannello principale. Associa ogni azione di allarme di Home Assistant a una modalità di allarme Verisure; lascia un campo vuoto per nascondere quel pulsante.{subpanels_note}",
+                "data": {
+                    "map_home": "Casa",
+                    "map_away": "Fuori casa",
+                    "map_night": "Notte",
+                    "map_vacation": "Vacanza",
+                    "map_custom": "Personalizzato"
+                }
+            },
+            "lock_automations": {
+                "title": "Automazione delle serrature",
+                "description": "Configura il comportamento automatico di blocco e disattivazione per ciascuna serratura.\n\n⚠️ Disattiva prima il blocco automatico nell'app Verisure: il suo blocco automatico a tempo va in conflitto con il blocco all'attivazione di questa integrazione.\n\nNota: questo è diverso dall'app Verisure. L'app sblocca la serratura quando l'allarme viene disattivato; questa integrazione invece disattiva l'allarme quando la serratura viene sbloccata, e solo quando viene sbloccata da Home Assistant.",
+                "sections": {
+                    "lock__01": {
+                        "name": "{lock_alias_01}",
+                        "data": {
+                            "lock_on_arm__interior": "Blocca automaticamente all'attivazione dell'allarme Interno",
+                            "lock_on_arm__perimeter": "Blocca automaticamente all'attivazione dell'allarme Perimetrale",
+                            "lock_on_arm__annex": "Blocca automaticamente all'attivazione dell'allarme Annesso",
+                            "unlock_disarms__interior": "Disattiva l'allarme Interno prima di sbloccare",
+                            "unlock_disarms__perimeter": "Disattiva l'allarme Perimetrale prima di sbloccare",
+                            "unlock_disarms__annex": "Disattiva l'allarme Annesso prima di sbloccare"
+                        }
+                    },
+                    "lock__02": {
+                        "name": "{lock_alias_02}",
+                        "data": {
+                            "lock_on_arm__interior": "Blocca automaticamente all'attivazione dell'allarme Interno",
+                            "lock_on_arm__perimeter": "Blocca automaticamente all'attivazione dell'allarme Perimetrale",
+                            "lock_on_arm__annex": "Blocca automaticamente all'attivazione dell'allarme Annesso",
+                            "unlock_disarms__interior": "Disattiva l'allarme Interno prima di sbloccare",
+                            "unlock_disarms__perimeter": "Disattiva l'allarme Perimetrale prima di sbloccare",
+                            "unlock_disarms__annex": "Disattiva l'allarme Annesso prima di sbloccare"
+                        }
+                    },
+                    "lock__03": {
+                        "name": "{lock_alias_03}",
+                        "data": {
+                            "lock_on_arm__interior": "Blocca automaticamente all'attivazione dell'allarme Interno",
+                            "lock_on_arm__perimeter": "Blocca automaticamente all'attivazione dell'allarme Perimetrale",
+                            "lock_on_arm__annex": "Blocca automaticamente all'attivazione dell'allarme Annesso",
+                            "unlock_disarms__interior": "Disattiva l'allarme Interno prima di sbloccare",
+                            "unlock_disarms__perimeter": "Disattiva l'allarme Perimetrale prima di sbloccare",
+                            "unlock_disarms__annex": "Disattiva l'allarme Annesso prima di sbloccare"
+                        }
+                    },
+                    "lock__04": {
+                        "name": "{lock_alias_04}",
+                        "data": {
+                            "lock_on_arm__interior": "Blocca automaticamente all'attivazione dell'allarme Interno",
+                            "lock_on_arm__perimeter": "Blocca automaticamente all'attivazione dell'allarme Perimetrale",
+                            "lock_on_arm__annex": "Blocca automaticamente all'attivazione dell'allarme Annesso",
+                            "unlock_disarms__interior": "Disattiva l'allarme Interno prima di sbloccare",
+                            "unlock_disarms__perimeter": "Disattiva l'allarme Perimetrale prima di sbloccare",
+                            "unlock_disarms__annex": "Disattiva l'allarme Annesso prima di sbloccare"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "services": {
+        "force_arm": {
+            "name": "Forzare attivazione",
+            "description": "Deprecato — usa `verisure_owa.force_arm` al suo posto.\n\nForzare l'attivazione dell'allarme, ignorando le eccezioni non bloccanti (es. finestre aperte) da un precedente tentativo di attivazione fallito.",
+            "fields": {
+                "code": {
+                    "name": "Codice PIN",
+                    "description": "Opzionale. Se fornito, viene convalidato con il PIN configurato prima di completare l'attivazione forzata. La maggior parte dei chiamanti non ne ha bisogno — il precedente tentativo di attivazione che ha generato il contesto di attivazione forzata ha già convalidato il PIN."
+                }
+            }
+        },
+        "force_arm_cancel": {
+            "name": "Annullare attivazione forzata",
+            "description": "Deprecato — usa `verisure_owa.force_arm_cancel` al suo posto.\n\nAnnullare un'attivazione forzata in sospeso e chiudere la notifica di eccezione di attivazione."
+        }
+    },
+    "exceptions": {
+        "invalid_pin_code": {
+            "message": "Codice PIN non valido per {entity_id}"
+        },
+        "unsupported_alarm_mode": {
+            "message": "Questa modalità di allarme non è supportata dal tuo pannello (rifiutato: {tried}). Controlla le mappature degli stati nelle opzioni dell'integrazione (Impostazioni → Dispositivi e servizi → Verisure OWA → Configura)."
+        },
+        "unsupported_alarm_mode_subpanel": {
+            "message": "Questa modalità di allarme non è supportata dal tuo pannello (rifiutato: {tried}). È stata disattivata su questo sotto-pannello e non sarà più proposta."
+        },
+        "no_supported_command": {
+            "message": "Nessun comando compatibile trovato per questo pannello. Controlla le mappature degli stati nelle opzioni dell'integrazione (Impostazioni → Dispositivi e servizi → Verisure OWA → Configura)."
+        },
+        "operation_in_progress": {
+            "message": "L'allarme è occupato con un altro comando. Riprova tra un momento."
+        },
+        "arm_refused_unknown_state": {
+            "message": "Impossibile inserire {installation}: l'allarme segnala uno stato che questa integrazione non riconosce (codice {code}). Vedi Impostazioni → Riparazioni."
+        }
+    },
+    "issues": {
+        "orphan_verisure_owa_directory": {
+            "title": "Cartella verisure_owa obsoleta",
+            "description": "Una cartella obsoleta `verisure_owa` è rimasta in `{path}` da un precedente aggiornamento. Non fa più nulla e può essere eliminata in sicurezza. Eliminala e riavvia Home Assistant per rimuovere questo avviso."
+        },
+        "duplicate_entry": {
+            "title": "Installazione aggiunta due volte",
+            "description": "Verisure OWA ha due voci per {installation} con lo stesso account. Rimuovine una in Impostazioni → Dispositivi e servizi → Verisure OWA. Questo avviso scompare quando ne rimane solo una."
+        },
+        "unknown_alarm_state": {
+            "title": "Stato dell'allarme non riconosciuto",
+            "description": "Verisure segnala il codice di stato dell'allarme {code} per {installation}, che questa integrazione non riconosce ancora. Il disinserimento funziona ancora, ma l'inserimento viene rifiutato finché l'allarme non segnala uno stato noto. Segnala il codice su {url} perché possa essere supportato. Questo avviso scompare quando torna uno stato noto."
+        },
+        "sign_in_again": {
+            "title": "Accedi di nuovo a Verisure",
+            "description": "Verisure richiede di accedere di nuovo come {username}; fino ad allora Home Assistant non riesce a raggiungere l'allarme. Apri Impostazioni → Dispositivi e servizi → Verisure OWA e segui la richiesta per accedere con la password (e il codice che Verisure ti invia via SMS, se lo chiede). Questo avviso scompare quando l'accesso riesce."
+        },
+        "account_blocked": {
+            "title": "Verisure ha bloccato il tuo account",
+            "description": "Verisure ha bloccato l'account {username}, quindi Home Assistant non riesce a raggiungere l'allarme. Usa 'Password dimenticata' sul sito Verisure per reimpostare la password e sbloccare l'account, poi apri Impostazioni → Dispositivi e servizi → Verisure OWA e segui la richiesta per accedere con la nuova password. Questo avviso scompare quando l'accesso riesce."
+        },
+        "renewal_refused": {
+            "title": "Verisure continua a rifiutare l'accesso salvato",
+            "description": "Da almeno 15 minuti Verisure rifiuta di rinnovare l'accesso salvato di {username}, quindi Home Assistant non riesce a raggiungere l'allarme. Spesso è un problema temporaneo di Verisure: l'integrazione continua a riprovare ogni pochi minuti e si ripristina da sola se Verisure torna ad accettarlo. Altrimenti accedi di nuovo: apri Impostazioni → Dispositivi e servizi → Verisure OWA, apri il menu (⋮) della voce e scegli Riconfigura. Questo avviso scompare quando un rinnovo o un accesso riesce."
+        },
+        "cannot_reach_verisure": {
+            "title": "Home Assistant non riesce a raggiungere Verisure",
+            "description": "Da almeno un'ora nessuna richiesta di Home Assistant a Verisure per {username} è andata a buon fine. L'integrazione continua a riprovare ogni pochi minuti e si ripristina da sola quando Verisure torna a rispondere. Controlla che l'app Verisure funzioni e che Home Assistant sia connesso a Internet. Se l'app Verisure funziona e questo avviso resta, segnalalo con il log su {url}. Questo avviso scompare quando una richiesta a Verisure riesce."
+        }
+    },
+    "entity": {
+        "event": {
+            "activity": {
+                "name": "Attività",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "armed": "Armato",
+                            "armed_with_exceptions": "Armato con eccezioni",
+                            "arming_failed": "Armamento fallito",
+                            "disarmed": "Disarmato",
+                            "alarm": "Allarme",
+                            "alarm_resolved": "Allarme risolto",
+                            "tampering": "Manomissione",
+                            "sabotage": "Sabotaggio",
+                            "image_request": "Richiesta immagine",
+                            "power_cut": "Interruzione di corrente",
+                            "power_restored": "Corrente ripristinata",
+                            "status_check": "Verifica di stato",
+                            "communication_failed": "Errore di comunicazione",
+                            "communication_restored": "Comunicazione ripristinata",
+                            "door_opened": "Porta aperta",
+                            "door_closed": "Porta chiusa",
+                            "routine_executed": "Routine eseguita",
+                            "tag_or_remote_activated": "Tag o telecomando attivato",
+                            "high_temperature": "Temperatura elevata",
+                            "unknown": "Evento sconosciuto"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

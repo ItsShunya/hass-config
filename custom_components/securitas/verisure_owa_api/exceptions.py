@@ -1,0 +1,359 @@
+"""Verisure OWA API exceptions."""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+class VerisureOwaError(Exception):
+    """Base class for all Verisure OWA errors."""
+
+    # http_status values that are well-understood and need no extra context.
+    # 400 = command not in panel's GraphQL enum (BAD_USER_INPUT).
+    # 403 = session expired / WAF block.
+    # 404 = panel-side rejection of a specific command (e.g. compound
+    #       disarm not recognised by panel firmware); the message already
+    #       carries the panel's error code so the body is duplicative.
+    # 409 = server busy (transient).
+    _KNOWN_STATUSES: frozenset[int] = frozenset({400, 403, 404, 409})
+
+    def __init__(self, message: str, *, http_status: int | None = None) -> None:
+        super().__init__(message)
+        self.http_status = http_status
+        # May be set by callers after construction to attach the raw response.
+        self.response_body: Any | None = None
+
+    @property
+    def message(self) -> str:
+        """Short human-readable error description."""
+        return str(self.args[0]) if self.args else str(self)
+
+    def log_detail(self) -> str:
+        """Return a log string: concise for known errors, verbose otherwise.
+
+        Known HTTP statuses (400, 403, 404, 409) return just the message.
+        Unknown errors append the response body so we can diagnose them.
+        """
+        if self.http_status in self._KNOWN_STATUSES:
+            return self.message
+        if self.response_body is None:
+            return self.message
+        return f"{self.message} | response: {self.response_body}"
+
+
+class AuthenticationError(VerisureOwaError):
+    """Raised when credentials are rejected."""
+
+
+class TwoFactorRequiredError(VerisureOwaError):
+    """Raised when the device requires 2FA authorisation."""
+
+
+class SessionExpiredError(VerisureOwaError):
+    """Raised when the JWT has expired and must be refreshed."""
+
+
+class APIResponseError(VerisureOwaError):
+    """Raised when the API returns a GraphQL-level error.
+
+    Carries the HTTP status code so callers can make routing decisions
+    without inspecting the response body.
+    """
+
+
+class AccountBlockedError(AuthenticationError):
+    """Raised when the user account is blocked by Verisure."""
+
+
+class WAFBlockedError(VerisureOwaError):
+    """Raised when the Incapsula WAF blocks the request."""
+
+
+class APIConnectionError(VerisureOwaError):
+    """Raised on network-level failures (DNS, TCP, TLS).
+
+    ``connection_never_established`` is set by the transport, the one layer that
+    still holds the original aiohttp exception and so can tell the two cases
+    apart. It is True only when the socket never opened — a DNS/TCP failure or a
+    *connect* timeout — so no request was written and retrying (e.g. on another
+    address family) cannot re-send a sign-in. A timeout waiting for a *reply*
+    leaves it False: the request may have arrived and been acted on. Callers
+    read the flag; they never re-derive it from ``__cause__``.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        http_status: int | None = None,
+        connection_never_established: bool = False,
+    ) -> None:
+        super().__init__(message, http_status=http_status)
+        self.connection_never_established = connection_never_established
+
+
+class OperationTimeoutError(VerisureOwaError):
+    """Raised when a panel operation does not complete within the timeout."""
+
+
+class OperationFailedError(VerisureOwaError):
+    """Raised when the panel explicitly rejects an operation.
+
+    Carries the vendor error codes for diagnostics.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: str | None = None,
+        error_type: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+        self.error_type = error_type
+
+
+class ArmingExceptionError(VerisureOwaError):
+    """Raised when arming is blocked by sensor exceptions (e.g. open window).
+
+    Carries the affected sensors and, when ``allow_forcing`` is true, the
+    context (reference_id, suid) needed to retry with forceArmingRemoteId.
+    """
+
+    def __init__(
+        self,
+        reference_id: str,
+        suid: str,
+        exceptions: list[dict[str, Any]],
+        *,
+        allow_forcing: bool = True,
+    ) -> None:
+        self.reference_id = reference_id
+        self.suid = suid
+        self.exceptions = exceptions  # [{status, deviceType, alias}, ...]
+        self.allow_forcing = allow_forcing
+        details = ", ".join(e.get("alias", "unknown") for e in exceptions)
+        # A rejection without a referenceId/suid yields no sensor details
+        # (nothing to look up) — avoid a dangling "…exceptions: " message.
+        message = (
+            f"Arming blocked by exceptions: {details}"
+            if details
+            else "Arming blocked by open sensors (no sensor details available)"
+        )
+        super().__init__(message)
+
+
+class ImageCaptureError(VerisureOwaError):
+    """Raised when a camera image capture request fails."""
+
+
+class UnexpectedStateError(VerisureOwaError):
+    """Raised when the API returns an unrecognised protocol code."""
+
+    def __init__(self, proto_code: str) -> None:
+        self.proto_code = proto_code
+        super().__init__(f"Unexpected protocol code: {proto_code!r}")
+
+
+_ACCOUNT_BLOCKED_ERROR_CODE = "60052"
+
+# Vendor error codes that genuinely require re-authentication: the
+# account-blocked code above, and 60067, an invalid or expired session on
+# refresh.
+_GENUINE_AUTH_ERROR_CODES: frozenset[str] = frozenset(
+    {_ACCOUNT_BLOCKED_ERROR_CODE, "60067"}
+)
+
+# The refusal codes is_refresh_token_rejected names; dead_refresh_token_signal
+# counts any code.
+_REFRESH_REFUSAL_ERROR_CODES: frozenset[str] = frozenset({"4", "7"})
+
+
+# Verisure's resolver crashing on a missing value (#557, #568).
+_NULL_DEREF = "Cannot read properties of undefined"
+
+
+def _first_error(body: object) -> dict[str, Any] | None:
+    """Return ``body["errors"][0]`` if it is a dict, else ``None``.
+
+    Centralises the defensive walk into a GraphQL response's error envelope so
+    the several predicates that inspect the first error (``_error_code_from_body``
+    for its ``data.err`` code, ``is_refresh_login_crash`` for its ``path`` and
+    ``message``, ``is_refresh_token_rejected`` for its ``path`` and error code)
+    share one shape guard instead of each re-implementing it.
+    """
+    if not isinstance(body, dict):
+        return None
+    errors = body.get("errors")
+    if isinstance(errors, list) and errors and isinstance(errors[0], dict):
+        return errors[0]
+    return None
+
+
+def _error_code_from_body(body: object) -> str | None:
+    """Extract the vendor ``err`` code from a GraphQL response-body dict.
+
+    Walks ``body["errors"][0]["data"]["err"]`` defensively, returning the code
+    as a string (the server sends strings) or ``None`` if absent/malformed.
+    Shared by ``_error_code`` (error-object form) and the auth client's
+    account-blocked check (raw-response form).
+    """
+    first = _first_error(body)
+    if first is not None:
+        data = first.get("data")
+        if isinstance(data, dict):
+            code = data.get("err")
+            return str(code) if code is not None else None
+    return None
+
+
+def _error_code(err: VerisureOwaError) -> str | None:
+    """Best-effort extraction of the vendor ``err`` code from an error object."""
+    return _error_code_from_body(err.response_body)
+
+
+def is_genuine_auth_failure(err: VerisureOwaError) -> bool:
+    """True only for failures that genuinely require re-authentication.
+
+    Genuine (-> reauth): credential rejection, account blocked (err 60052),
+    2FA required, or an explicitly invalid/revoked token (err 60067).
+
+    Everything else -- 5xx, 409, network/timeout, WAF blocks, a bare HTTP 403
+    "try again later" session error, and unrecognised null-data GraphQL errors
+    such as an xSRefreshLogin server crash or any other refusal of the saved
+    sign-in (see ``dead_refresh_token_signal``), however often it repeats -- is
+    transient and must NOT trigger a reauth prompt. Unknown
+    failures default to transient.
+    """
+    if isinstance(err, (AuthenticationError, TwoFactorRequiredError)):
+        return True
+    return _error_code(err) in _GENUINE_AUTH_ERROR_CODES
+
+
+def is_account_blocked(err: VerisureOwaError) -> bool:
+    """True when Verisure refused the request because the account is blocked."""
+    return (
+        isinstance(err, AccountBlockedError)
+        or _error_code(err) == _ACCOUNT_BLOCKED_ERROR_CODE
+    )
+
+
+def is_refresh_login_crash(err: VerisureOwaError) -> bool:
+    """True for the specific server-side ``xSRefreshLogin`` resolver crash (#568).
+
+    The signature is a GraphQL error on the ``xSRefreshLogin`` path whose message
+    is a JavaScript null-dereference — the canonical form is
+    ``Cannot read properties of undefined (reading 'fr')`` (#557), but the same
+    server fault can dereference a sibling property, so match the null-deref
+    class rather than the exact property. This is deliberately narrower than
+    ``is_genuine_auth_failure``'s catch-all transient bucket: a genuine token
+    rejection (err 60067) carries a real message, not a null-deref, so it does
+    not match here.
+    """
+    first = _first_error(err.response_body)
+    if first is None:
+        return False
+    path = first.get("path")
+    message = first.get("message")
+    on_refresh_login = isinstance(path, list) and "xSRefreshLogin" in path
+    is_null_deref = isinstance(message, str) and _NULL_DEREF in message
+    return on_refresh_login and is_null_deref
+
+
+def is_refresh_token_rejected(err: VerisureOwaError) -> bool:
+    """True when ``xSRefreshLogin`` refuses the stored token (error code 4 or 7).
+
+    Error 4 arrives with status 404 and error 7 with status 401, but only the
+    path and code are checked. Both were seen refusing every renewal with the
+    stored token, for hours or a day, until a fresh sign-in (#652 for err 7).
+    """
+    first = _first_error(err.response_body)
+    if first is None:
+        return False
+    path = first.get("path")
+    on_refresh_login = isinstance(path, list) and "xSRefreshLogin" in path
+    return on_refresh_login and _error_code(err) in _REFRESH_REFUSAL_ERROR_CODES
+
+
+def dead_refresh_token_signal(err: VerisureOwaError) -> str | None:
+    """Name the failure if it is Verisure refusing the saved sign-in, else None.
+
+    Any error Verisure answers on the ``xSRefreshLogin`` path is a refusal,
+    whatever its code, unless it is a genuine credential failure, Verisure's
+    own timeout reply, or carries a 5xx ``data.status`` (a server fault, not
+    a verdict on the saved sign-in). The #568 resolver crash is a refusal
+    only when none of those applies.
+
+    Always transient: the client and setup keep retrying and, once refusals
+    have lasted ``REFRESH_REFUSAL_ALERT_AFTER``, alert the user instead.
+    """
+    first = _first_error(err.response_body)
+    if first is None:
+        return None
+    path = first.get("path")
+    if not (isinstance(path, list) and "xSRefreshLogin" in path):
+        return None
+    if is_genuine_auth_failure(err):
+        return None
+    if _is_reported_server_fault(first):
+        return None
+    if is_refresh_login_crash(err):
+        return "refresh-login crash"
+    code = _error_code(err)
+    if code is not None:
+        return f"refresh-token rejection (err {code})"
+    return "refresh-login error"
+
+
+def is_credential_rejection(err: VerisureOwaError) -> bool:
+    """True when Verisure's reply judged the credentials themselves: a wrong
+    password, a blocked account, or an SMS code required.
+
+    Narrower than ``is_genuine_auth_failure``, which counts any
+    AuthenticationError, including a sign-in refused locally with no reply
+    and one carrying a server fault. Decides when a stored password must stop
+    being used.
+    """
+    if isinstance(err, (AccountBlockedError, TwoFactorRequiredError)):
+        return True
+    first = _first_error(err.response_body)
+    if first is None or _is_server_fault(first):
+        return False
+    return (
+        isinstance(err, AuthenticationError)
+        or _error_code(err) in _GENUINE_AUTH_ERROR_CODES
+    )
+
+
+def is_server_fault_reply(body: object) -> bool:
+    """True when a reply's first error reports Verisure's own fault."""
+    first = _first_error(body)
+    return first is not None and _is_server_fault(first)
+
+
+def _is_server_fault(first: dict[str, Any]) -> bool:
+    """True when an error reports Verisure's own fault, not a verdict: its
+    timeout reply, a 5xx ``data.status``, or a resolver crash."""
+    if _is_reported_server_fault(first):
+        return True
+    message = first.get("message")
+    return isinstance(message, str) and _NULL_DEREF in message
+
+
+def _is_reported_server_fault(first: dict[str, Any]) -> bool:
+    """True when an error says outright that Verisure failed: its timeout
+    reply or a 5xx ``data.status``."""
+    data = first.get("data")
+    if not isinstance(data, dict):
+        data = {}
+    if first.get("name") == "TimeoutError" or data.get("err") == "TimeoutError":
+        return True
+    return _server_status(data.get("status"))
+
+
+def _server_status(status: object) -> bool:
+    """True when a GraphQL error's ``data.status`` is a 5xx (int or numeric str)."""
+    if isinstance(status, str) and status.strip().isdigit():
+        status = int(status)
+    return isinstance(status, int) and status >= 500

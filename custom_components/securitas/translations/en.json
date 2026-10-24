@@ -1,0 +1,363 @@
+{
+    "config": {
+        "error": {
+            "account_blocked": "Your account has been blocked by Verisure. Use 'Forgot password' on the Verisure website to reset your password and unblock your account, then try again",
+            "invalid_auth": "Invalid username or password",
+            "cannot_connect": "Unable to connect to Verisure",
+            "invalid_otp": "Invalid verification code",
+            "otp_expired": "Verification code expired — a new code will be sent",
+            "otp_send_failed": "Failed to send verification code — please try again",
+            "service_error": "Verisure service error: {error}"
+        },
+        "abort": {
+            "already_configured": "Service is already configured",
+            "reauth_successful": "Reauthentication successful",
+            "reconfigure_successful": "Signed in again",
+            "no_refresh_token": "Login succeeded but Verisure did not return a refresh token. The integration cannot persist credentials safely. Please try again later or report this if it persists.",
+            "installation_not_on_account": "This Verisure account can't see installation {number}. Sign in with an account that has access to it.",
+            "signed_in_again_elsewhere": "This entry was signed in again from another dialog while this one was signing in, so this sign-in was not saved.",
+            "account_signed_in_again_elsewhere": "This Verisure account was signed in again from another installation's dialog while this one was signing in, so this sign-in was not saved. If this installation still can't connect, sign in again.",
+            "already_in_progress": "Another setup or sign-in for this installation is already in progress."
+        },
+        "step": {
+            "reauth_confirm": {
+                "title": "Reauthenticate Verisure",
+                "description": "Your session has expired. Please re-enter your password to reconnect.",
+                "data": {
+                    "username": "Username",
+                    "password": "Password",
+                    "keep_password": "Keep my password so the integration can sign in again by itself"
+                },
+                "data_description": {
+                    "keep_password": "If ticked, your password is stored unencrypted in Home Assistant's configuration files, where anyone who can read those files or a backup of them can read it. Leave it unticked to keep only the saved sign-in, which is not your password and so is no use anywhere else you use that password."
+                }
+            },
+            "reconfigure": {
+                "title": "Sign in to Verisure again",
+                "description": "Enter your Verisure password to get a new login. Use this when the integration can't connect and hasn't asked you to sign in again.",
+                "data": {
+                    "username": "Username",
+                    "password": "Password",
+                    "keep_password": "Keep my password so the integration can sign in again by itself"
+                },
+                "data_description": {
+                    "keep_password": "If ticked, your password is stored unencrypted in Home Assistant's configuration files, where anyone who can read those files or a backup of them can read it. Leave it unticked to keep only the saved sign-in, which is not your password and so is no use anywhere else you use that password."
+                }
+            },
+            "user": {
+                "data": {
+                    "country": "Country",
+                    "username": "Username",
+                    "password": "Password",
+                    "keep_password": "Keep my password so the integration can sign in again by itself"
+                },
+                "data_description": {
+                    "keep_password": "If ticked, your password is stored unencrypted in Home Assistant's configuration files, where anyone who can read those files or a backup of them can read it. Leave it unticked to keep only the saved sign-in, which is not your password and so is no use anywhere else you use that password."
+                },
+                "description": "Login into Verisure.",
+                "title": "Login"
+            },
+            "phone_list": {
+                "description": "Which phone number should we use to send you a code via SMS?",
+                "title": "Verisure 2FA",
+                "data": {
+                    "phones": "Phone number"
+                }
+            },
+            "otp_challenge": {
+                "description": "Enter the code you received on your phone",
+                "title": "Verisure 2FA"
+            },
+            "select_installation": {
+                "title": "Select Installation",
+                "description": "Select the installation to configure.",
+                "data": {
+                    "installation": "Installation"
+                }
+            },
+            "options": {
+                "title": "Options for {installation_name}",
+                "description": "Configure alarm options.",
+                "sections": {
+                    "pin": {
+                        "name": "PIN code for disarming",
+                        "data": {
+                            "code": "PIN code (leave empty for no PIN)",
+                            "code_arm_required": "Also require PIN code (if any) to arm alarm",
+                            "lock_code_required": "Also require PIN code (if any) for lock/unlock operations"
+                        }
+                    },
+                    "notifications": {
+                        "name": "Force-arm notifications",
+                        "data": {
+                            "notify_group": "Notify service for arming exceptions (e.g. mobile_app_phone)",
+                            "force_arm_notifications": "Built-in force-arm notifications (disable to use your own automations)",
+                            "auto_force_arm": "Offer an auto-force-arm tick box in the alarm controls"
+                        },
+                        "data_description": {
+                            "auto_force_arm": "When enabled, the alarm's More Info dialog and a Tile card with Alarm modes and the Verisure OWA Open Sensors feature (and the deprecated alarm card) show a tick box that automatically force-arms past open doors/windows instead of waiting for you to confirm. It acts only on an arm started from the buttons next to it. The choice is remembered per device in the browser. Leave off where your panel does not support force-arming."
+                        }
+                    },
+                    "subpanels": {
+                        "name": "Additional sub-panels",
+                        "data": {
+                            "enable_perimeter_panel": "Enable Perimeter-only control panel",
+                            "enable_annex_panel": "Enable Annex-only control panel",
+                            "enable_interior_panel": "Enable Interior-only control panel"
+                        }
+                    },
+                    "activity": {
+                        "name": "Activity Log and Events",
+                        "data": {
+                            "enable_activity_polling": "Poll the activity log once per minute in the background (for event automations)"
+                        }
+                    },
+                    "advanced": {
+                        "name": "Advanced",
+                        "data": {
+                            "scan_interval": "Update scan interval in seconds (0 disables auto-updates)",
+                            "delay_check_operation": "Delay between API requests (sec)",
+                            "operation_poll_timeout": "Operation poll timeout (seconds)"
+                        },
+                        "data_description": {
+                            "operation_poll_timeout": "How long to wait for the panel to confirm an arm/disarm action. Raise this if you get timeout warnings."
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "title": "Alarm State Mappings",
+                "description": "These mappings apply to the main panel only. Map each Home Assistant alarm action to a Verisure alarm mode; leave a field blank to hide that button.{subpanels_note}",
+                "data": {
+                    "map_home": "Home",
+                    "map_away": "Away",
+                    "map_night": "Night",
+                    "map_vacation": "Vacation",
+                    "map_custom": "Custom"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "sections": {
+                    "pin": {
+                        "name": "PIN code for disarming",
+                        "data": {
+                            "code": "PIN code (leave empty for no PIN)",
+                            "code_arm_required": "Also require PIN code (if any) to arm alarm",
+                            "lock_code_required": "Also require PIN code (if any) for lock/unlock operations"
+                        }
+                    },
+                    "notifications": {
+                        "name": "Force-arm notifications",
+                        "data": {
+                            "notify_group": "Notify service for arming exceptions (e.g. mobile_app_phone)",
+                            "force_arm_notifications": "Built-in force-arm notifications (disable to use your own automations)",
+                            "auto_force_arm": "Offer an auto-force-arm tick box in the alarm controls"
+                        },
+                        "data_description": {
+                            "auto_force_arm": "When enabled, the alarm's More Info dialog and a Tile card with Alarm modes and the Verisure OWA Open Sensors feature (and the deprecated alarm card) show a tick box that automatically force-arms past open doors/windows instead of waiting for you to confirm. It acts only on an arm started from the buttons next to it. The choice is remembered per device in the browser. Leave off where your panel does not support force-arming."
+                        }
+                    },
+                    "subpanels": {
+                        "name": "Additional sub-panels",
+                        "data": {
+                            "enable_perimeter_panel": "Enable Perimeter-only control panel",
+                            "enable_annex_panel": "Enable Annex-only control panel",
+                            "enable_interior_panel": "Enable Interior-only control panel"
+                        }
+                    },
+                    "activity": {
+                        "name": "Activity Log and Events",
+                        "data": {
+                            "enable_activity_polling": "Poll the activity log once per minute in the background (for event automations)"
+                        }
+                    },
+                    "sign_in": {
+                        "name": "Sign-in",
+                        "description": "With this ticked, the integration keeps your password in Home Assistant's configuration files so it can sign in again by itself. If Verisure rejected the kept password, it has already been removed: sign in again with Reconfigure to keep a new one.",
+                        "data": {
+                            "keep_password": "Keep my password so the integration can sign in again by itself"
+                        },
+                        "data_description": {
+                            "keep_password": "Untick and save to delete the stored password at once, without signing in. To keep your password again, use Reconfigure, where you type it."
+                        }
+                    },
+                    "advanced": {
+                        "name": "Advanced",
+                        "data": {
+                            "scan_interval": "Update scan interval in seconds (0 disables auto-updates)",
+                            "delay_check_operation": "Delay between API requests (sec)",
+                            "operation_poll_timeout": "Operation poll timeout (seconds)"
+                        },
+                        "data_description": {
+                            "operation_poll_timeout": "How long to wait for the panel to confirm an arm/disarm action. Raise this if you get timeout warnings."
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "title": "Alarm State Mappings",
+                "description": "These mappings apply to the main panel only. Map each Home Assistant alarm action to a Verisure alarm mode; leave a field blank to hide that button.{subpanels_note}",
+                "data": {
+                    "map_home": "Home",
+                    "map_away": "Away",
+                    "map_night": "Night",
+                    "map_vacation": "Vacation",
+                    "map_custom": "Custom"
+                }
+            },
+            "lock_automations": {
+                "title": "Lock automation",
+                "description": "Configure each lock's automatic locking and panel-disarming behaviour.\n\n⚠️ Disable autolock in the Verisure app first — its timer-based autolock will fight this integration's arm-driven locking.\n\nNote: this differs from the Verisure app. The app unlocks the lock when the alarm is disarmed; this integration instead disarms the alarm when the lock is unlocked, and only when the lock is unlocked via Home Assistant.",
+                "sections": {
+                    "lock__01": {
+                        "name": "{lock_alias_01}",
+                        "data": {
+                            "lock_on_arm__interior": "Lock automatically when arming Interior alarm",
+                            "lock_on_arm__perimeter": "Lock automatically when arming Perimeter alarm",
+                            "lock_on_arm__annex": "Lock automatically when arming Annex alarm",
+                            "unlock_disarms__interior": "Disarm Interior alarm before unlocking",
+                            "unlock_disarms__perimeter": "Disarm Perimeter alarm before unlocking",
+                            "unlock_disarms__annex": "Disarm Annex alarm before unlocking"
+                        }
+                    },
+                    "lock__02": {
+                        "name": "{lock_alias_02}",
+                        "data": {
+                            "lock_on_arm__interior": "Lock automatically when arming Interior alarm",
+                            "lock_on_arm__perimeter": "Lock automatically when arming Perimeter alarm",
+                            "lock_on_arm__annex": "Lock automatically when arming Annex alarm",
+                            "unlock_disarms__interior": "Disarm Interior alarm before unlocking",
+                            "unlock_disarms__perimeter": "Disarm Perimeter alarm before unlocking",
+                            "unlock_disarms__annex": "Disarm Annex alarm before unlocking"
+                        }
+                    },
+                    "lock__03": {
+                        "name": "{lock_alias_03}",
+                        "data": {
+                            "lock_on_arm__interior": "Lock automatically when arming Interior alarm",
+                            "lock_on_arm__perimeter": "Lock automatically when arming Perimeter alarm",
+                            "lock_on_arm__annex": "Lock automatically when arming Annex alarm",
+                            "unlock_disarms__interior": "Disarm Interior alarm before unlocking",
+                            "unlock_disarms__perimeter": "Disarm Perimeter alarm before unlocking",
+                            "unlock_disarms__annex": "Disarm Annex alarm before unlocking"
+                        }
+                    },
+                    "lock__04": {
+                        "name": "{lock_alias_04}",
+                        "data": {
+                            "lock_on_arm__interior": "Lock automatically when arming Interior alarm",
+                            "lock_on_arm__perimeter": "Lock automatically when arming Perimeter alarm",
+                            "lock_on_arm__annex": "Lock automatically when arming Annex alarm",
+                            "unlock_disarms__interior": "Disarm Interior alarm before unlocking",
+                            "unlock_disarms__perimeter": "Disarm Perimeter alarm before unlocking",
+                            "unlock_disarms__annex": "Disarm Annex alarm before unlocking"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "services": {
+        "force_arm": {
+            "name": "Force arm",
+            "description": "Deprecated — use `verisure_owa.force_arm` instead.\n\nForce-arm the alarm, overriding non-blocking exceptions (e.g. open windows) from a previous failed arm attempt.",
+            "fields": {
+                "code": {
+                    "name": "PIN code",
+                    "description": "Optional. If supplied, validated against the configured PIN before completing the force-arm. Most callers don't need this — the prior arm attempt that produced the force-arm context already validated the PIN."
+                }
+            }
+        },
+        "force_arm_cancel": {
+            "name": "Cancel force arm",
+            "description": "Deprecated — use `verisure_owa.force_arm_cancel` instead.\n\nCancel a pending force-arm and dismiss the arming-exception notification."
+        }
+    },
+    "exceptions": {
+        "invalid_pin_code": {
+            "message": "Invalid PIN code for {entity_id}"
+        },
+        "unsupported_alarm_mode": {
+            "message": "This alarm mode is not supported by your panel (rejected: {tried}). Check the state mappings in the integration options (Settings → Devices & services → Verisure OWA → Configure)."
+        },
+        "unsupported_alarm_mode_subpanel": {
+            "message": "This alarm mode is not supported by your panel (rejected: {tried}). It has been disabled on this sub-panel and won't be offered again."
+        },
+        "no_supported_command": {
+            "message": "No supported command found for this panel. Check the state mappings in the integration options (Settings → Devices & services → Verisure OWA → Configure)."
+        },
+        "operation_in_progress": {
+            "message": "The alarm is busy with another command. Try again in a moment."
+        },
+        "arm_refused_unknown_state": {
+            "message": "Can't arm {installation}: the alarm reports a state this integration doesn't recognise (code {code}). See Settings → Repairs."
+        }
+    },
+    "issues": {
+        "orphan_verisure_owa_directory": {
+            "title": "Leftover verisure_owa folder",
+            "description": "An obsolete `verisure_owa` directory was left at `{path}` by an earlier (broken) upgrade. It does nothing now and can be safely deleted. Remove the directory and restart Home Assistant to clear this notice."
+        },
+        "duplicate_entry": {
+            "title": "Installation added twice",
+            "description": "Verisure OWA has two entries for {installation} on the same account. Remove one of them in Settings → Devices & services → Verisure OWA. This notice clears once only one is left."
+        },
+        "unknown_alarm_state": {
+            "title": "Unrecognised alarm state",
+            "description": "Verisure reports alarm state code {code} for {installation}, which this integration doesn't recognise yet. Disarming still works, but arming is refused until the alarm reports a known state. Please report the code at {url} so it can be supported. This notice clears when a known state returns."
+        },
+        "sign_in_again": {
+            "title": "Sign in to Verisure again",
+            "description": "Verisure needs you to sign in again as {username}, so Home Assistant can't reach your alarm until you do. Open Settings → Devices & services → Verisure OWA and follow the prompt to sign in with your password (and the code Verisure texts you, if it asks for one). This notice clears once the sign-in succeeds."
+        },
+        "account_blocked": {
+            "title": "Verisure has blocked your account",
+            "description": "Verisure has blocked the account {username}, so Home Assistant can't reach your alarm. Use 'Forgot password' on the Verisure website to reset your password and unblock the account, then open Settings → Devices & services → Verisure OWA and follow the prompt to sign in with the new password. This notice clears once the sign-in succeeds."
+        },
+        "renewal_refused": {
+            "title": "Verisure keeps refusing the saved sign-in",
+            "description": "For at least 15 minutes Verisure has refused to renew the saved sign-in for {username}, so Home Assistant can't reach your alarm. This is often a temporary problem at Verisure: the integration keeps trying every few minutes and recovers by itself if Verisure accepts it again. If it doesn't, sign in again: open Settings → Devices & services → Verisure OWA, open the menu (⋮) on the entry and choose Reconfigure. This notice clears once a renewal or sign-in succeeds."
+        },
+        "cannot_reach_verisure": {
+            "title": "Home Assistant can't reach Verisure",
+            "description": "For at least an hour, no request from Home Assistant to Verisure for {username} has worked. The integration keeps trying every few minutes and recovers by itself once Verisure answers again. Check that the Verisure app works and that Home Assistant is online. If the Verisure app works and this notice stays, please report it with the log at {url}. This notice clears once a request to Verisure works."
+        }
+    },
+    "entity": {
+        "event": {
+            "activity": {
+                "name": "Activity",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "armed": "Armed",
+                            "armed_with_exceptions": "Armed with exceptions",
+                            "arming_failed": "Arming failed",
+                            "disarmed": "Disarmed",
+                            "alarm": "Alarm",
+                            "alarm_resolved": "Alarm resolved",
+                            "tampering": "Tampering",
+                            "sabotage": "Sabotage",
+                            "image_request": "Image request",
+                            "power_cut": "Power cut",
+                            "power_restored": "Power restored",
+                            "status_check": "Status check",
+                            "communication_failed": "Communication failed",
+                            "communication_restored": "Communication restored",
+                            "door_opened": "Door opened",
+                            "door_closed": "Door closed",
+                            "routine_executed": "Routine executed",
+                            "tag_or_remote_activated": "Tag or remote activated",
+                            "high_temperature": "High temperature",
+                            "unknown": "Unknown"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -13,6 +13,7 @@ Each vendored folder keeps the upstream `LICENSE` file. This code is **not** cov
 | Folder | Upstream | Version | License |
 |---|---|---|---|
 | `custom_components/alexa_media` | [alandtse/alexa_media_player](https://github.com/alandtse/alexa_media_player) | `v5.14.0` | Apache-2.0 |
+| `custom_components/securitas` | [guerrerotook/securitas-direct-new-api](https://github.com/guerrerotook/securitas-direct-new-api) | `v5.10.0` | Apache-2.0 |
 | `custom_components/xiaomi_miot` | [al-one/hass-xiaomi-miot](https://github.com/al-one/hass-xiaomi-miot) | commit [`8b3a31a`](https://github.com/al-one/hass-xiaomi-miot/commit/8b3a31a3a4b25525417b77c4834309f2a08d4439) (between `v1.1.2` and `v1.1.3`) | Apache-2.0 |
 | `custom_components/xiaomi_cloud_map_extractor` | [PiotrMachowski/Home-Assistant-custom-components-Xiaomi-Cloud-Map-Extractor](https://github.com/PiotrMachowski/Home-Assistant-custom-components-Xiaomi-Cloud-Map-Extractor) | `v3.0.0-alpha-10` | MIT |
 

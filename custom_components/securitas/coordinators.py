@@ -1,0 +1,1152 @@
+"""DataUpdateCoordinators for Verisure OWA HA integration.
+
+Five coordinators replace per-entity independent polling:
+- AlarmCoordinator: alarm status polling
+- SentinelCoordinator: environmental sensor data
+- LockCoordinator: smart lock mode status
+- CameraCoordinator: camera thumbnails
+- ActivityCoordinator: alarm panel activity timeline
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable, Iterable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from typing import Any, Literal, NoReturn
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.storage import Store
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+
+from .api_queue import ApiQueue
+from .const import DOMAIN, PROJECT_URL
+from .events import HA_INJECTABLE_CATEGORIES
+from .verisure_owa_api.capabilities import detect_annex, detect_peri
+from .verisure_owa_api.client import VerisureOwaClient
+from .verisure_owa_api.command_resolver import (
+    PROTO_TO_ALARM_STATE,
+    AlarmState,
+    InteriorMode,
+    PerimeterMode,
+)
+from .verisure_owa_api.exceptions import (
+    SessionExpiredError,
+    VerisureOwaError,
+    WAFBlockedError,
+    is_genuine_auth_failure,
+)
+from .verisure_owa_api.models import (
+    ActivityEvent,
+    AirQuality,
+    CameraDevice,
+    Installation,
+    Sentinel,
+    Service,
+    SmartLockMode,
+    SStatus,
+    ThumbnailResponse,
+    is_proto_letter,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+_DEFAULT_SENTINEL_INTERVAL = timedelta(minutes=30)
+_DEFAULT_CAMERA_INTERVAL = timedelta(minutes=30)
+_DEFAULT_ACTIVITY_INTERVAL = timedelta(seconds=60)
+_ACTIVITY_TIMELINE_WINDOW = 30
+# Ids seen on the activity timeline, kept apart from the 30-row view so a row
+# leaving the view and coming back never fires twice. Ids in the latest poll or
+# the injected store are never evicted. Forgetting older ids is safe because the
+# panel returns only its newest rows (about 30 a fetch), so an entry 500
+# distinct ids old won't come back.
+_ACTIVITY_SEEN_IDS_LIMIT = 500
+# How close (in time) a polled entry must be to an injected HA event of the
+# same category to be treated as the panel's echo of that HA action. Observed
+# skew between HA's clock and the panel's is a few seconds; 15s absorbs that
+# while making an accidental match with a genuine separate same-category
+# action by another user very unlikely. Matching on the action timestamps
+# (not the fetch time) means a refresh hours later still pairs correctly.
+_HA_ECHO_MATCH_WINDOW = timedelta(seconds=15)
+_ACTIVITY_STORE_VERSION = 1
+_ACTIVITY_STORE_KEY_PREFIX = "verisure_owa_activity_log"
+
+
+def _parse_panel_time(value: str | None) -> datetime | None:
+    """Parse the panel's ``YYYY-MM-DD HH:MM:SS`` timestamp (naive), or None."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+
+
+# ── Data models ──────────────────────────────────────────────────────────────
+
+
+@dataclass
+class AlarmStatusData:
+    """Data returned by AlarmCoordinator."""
+
+    status: SStatus
+    protom_response: str = ""
+
+
+@dataclass
+class SentinelData:
+    """Data returned by SentinelCoordinator."""
+
+    sentinel: Sentinel | None = None
+    air_quality: AirQuality | None = None
+
+
+@dataclass
+class LockData:
+    """Data returned by LockCoordinator."""
+
+    modes: list[SmartLockMode] = field(default_factory=list)
+
+
+@dataclass
+class CameraData:
+    """Data returned by CameraCoordinator."""
+
+    thumbnails: dict[str, ThumbnailResponse] = field(default_factory=dict)
+    full_images: dict[str, bytes] = field(default_factory=dict)
+
+
+@dataclass
+class ActivityData:
+    """Data returned by ActivityCoordinator.
+
+    `events` is the most recent fetch from the panel timeline.
+    `new_events` is the subset whose idSignal no earlier poll returned —
+    empty on the first poll so listeners don't get a flood of historical entries.
+    """
+
+    events: list[ActivityEvent] = field(default_factory=list)
+    new_events: list[ActivityEvent] = field(default_factory=list)
+
+
+# ── Error handling ───────────────────────────────────────────────────────────
+
+
+def _raise_fetch_error(err: VerisureOwaError, label: str) -> NoReturn:
+    """Map a data-fetch VerisureOwaError to reauth vs. retry.
+
+    A genuinely dead session — bad credentials, account blocked (err 60052),
+    2FA, or an explicitly invalid/revoked token (err 60067) — reaching the
+    fetch means the refresh-token chain is broken with no way to recover
+    unattended: raise ConfigEntryAuthFailed so HA prompts reauth. Everything
+    else is a transient backend wobble → UpdateFailed (retry next poll).
+    """
+    if is_genuine_auth_failure(err):
+        raise ConfigEntryAuthFailed(f"Re-authentication required: {err}") from err
+    raise UpdateFailed(f"{label} update failed: {err}") from err
+
+
+async def _handle_session_expired(
+    client: VerisureOwaClient, err: SessionExpiredError
+) -> None:
+    """Recover from a SessionExpiredError that survived the client's own
+    refresh-and-retry.
+
+    Reaching here means the auth token was refreshed successfully (a *failed*
+    refresh raises a different error the caller classifies), yet the server
+    still returned "Invalid session, try again later" — a transient backend
+    desync, not a dead token. A refresh-token-only account (no stored password,
+    the norm since v5.1.0) has nothing stronger to try: login() would only raise
+    "no password available", which must NOT be allowed to masquerade as a
+    genuine credential failure and force a needless reauth. Treat it as
+    transient and retry next poll.
+
+    When a password is available, attempt a full re-login (it can recover a
+    genuinely dead refresh token) and classify the outcome.
+    """
+    # One coordinator at a time, so a password Verisure rejects, and the
+    # client then drops, is not sent again by the others queued here.
+    async with client.renewal_lock:
+        if not client.password:
+            # The token was just refreshed successfully, so this lingering 403
+            # is a transient backend desync. Keep the server's original error
+            # for diagnostics and chaining rather than fabricating a generic one.
+            client.record_auth_recovery_failure(err)
+            raise UpdateFailed(f"Transient session error, will retry: {err}") from err
+        submitted, kept = client.password, client.password_kept
+        try:
+            await client.login()
+        except (TimeoutError, VerisureOwaError) as login_err:
+            owa_err = (
+                login_err
+                if isinstance(login_err, VerisureOwaError)
+                else VerisureOwaError(f"Login timed out: {login_err!r}")
+            )
+            client.forget_rejected_password(owa_err, submitted, kept=kept)
+            if is_genuine_auth_failure(owa_err):
+                raise ConfigEntryAuthFailed(
+                    f"Re-authentication failed: {owa_err}"
+                ) from login_err
+            client.record_auth_recovery_failure(owa_err)
+            raise UpdateFailed(
+                f"Transient auth error, will retry: {owa_err}"
+            ) from login_err
+
+
+async def _fetch_with_session_recovery[T](
+    client: VerisureOwaClient,
+    fetcher: Callable[[], Awaitable[T]],
+    label: str,
+) -> T:
+    """Run *fetcher* with one-shot session-expired recovery.
+
+    On SessionExpiredError, recover (relogin for a password account; transient
+    retry for a refresh-token-only one) then retry once. A genuine auth failure
+    surfacing from the fetch itself — e.g. a dead refresh token (err 60067)
+    raised out of the client's pre-request auth check — raises
+    ConfigEntryAuthFailed for reauth; WAFBlockedError and any other
+    VerisureOwaError become UpdateFailed keyed on *label*.
+    """
+    try:
+        return await fetcher()
+    except SessionExpiredError as expired:
+        await _handle_session_expired(client, expired)
+        try:
+            return await fetcher()
+        except WAFBlockedError as err:
+            raise UpdateFailed(f"WAF blocked {label.lower()} request: {err}") from err
+        except VerisureOwaError as err:
+            _raise_fetch_error(err, label)
+    except WAFBlockedError as err:
+        raise UpdateFailed(f"WAF blocked {label.lower()} request: {err}") from err
+    except VerisureOwaError as err:
+        _raise_fetch_error(err, label)
+
+
+# ── AlarmCoordinator ─────────────────────────────────────────────────────────
+
+
+OperationKind = Literal["arm", "disarm", "partial_disarm"]
+
+
+class InstallationOperation:
+    """The one alarm command an installation runs at a time, shared by all
+    its panels: a second one waits until this one ends."""
+
+    def __init__(self) -> None:
+        self._idle = asyncio.Event()
+        self._idle.set()
+        self.kind: OperationKind | None = None
+        self.panels: frozenset[object] = frozenset()
+        self.mode: str | None = None
+
+    @property
+    def running(self) -> bool:
+        """True from ``begin`` until ``end``."""
+        return not self._idle.is_set()
+
+    def begin(
+        self, kind: OperationKind, panels: Iterable[object], mode: str | None = None
+    ) -> None:
+        """Mark ``kind`` as running on ``panels``; ``mode`` is an arm's mode."""
+        # Callers check `running` and call begin with no await in between.
+        assert not self.running, "operation already running"
+        self.kind = kind
+        self.panels = frozenset(panels)
+        self.mode = mode
+        self._idle.clear()
+
+    def end(self) -> None:
+        """Mark the installation idle, waking every waiter."""
+        self.kind = None
+        self.panels = frozenset()
+        self.mode = None
+        self._idle.set()
+
+    async def wait_idle(self) -> None:
+        """Return once no operation runs."""
+        await self._idle.wait()
+
+
+class AlarmCoordinator(DataUpdateCoordinator[AlarmStatusData]):
+    """Coordinator for alarm status polling."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        client: VerisureOwaClient,
+        queue: ApiQueue,
+        installation: Installation,
+        *,
+        update_interval: timedelta,
+        config_entry: ConfigEntry | None = None,
+    ) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=config_entry,
+            name="verisure_owa_alarm",
+            update_interval=update_interval,
+        )
+        self._client = client
+        self._queue = queue
+        self._installation = installation
+        # Capability-detection state — populated lazily on first refresh
+        self._capabilities: frozenset[str] = frozenset()
+        self._has_peri: bool = False
+        self._has_annex: bool = False
+        self._capabilities_populated: bool = False
+        self._confirmed_proto_code: str | None = None
+        self._confirmed_provisional = False
+        self._earlier_possible: frozenset[str | None] = frozenset()
+        # Also holds back polled codes while it runs: a poll landing then may
+        # predate the command's result.
+        self.operation = InstallationOperation()
+
+    @property
+    def confirmed_proto_code(self) -> str | None:
+        """The installation's latest known proto code, from whichever came
+        last: a poll, any alarm panel's command result, the status check
+        before an arm, or a manual Refresh.
+
+        Right after a command this is newer than ``data``, whose refresh may
+        not have landed yet. None until either has happened.
+        """
+        return self._confirmed_proto_code
+
+    @property
+    def confirmed_is_provisional(self) -> bool:
+        """True while the panel may not be in ``confirmed_proto_code``: a
+        command it accepted was never confirmed (#508). The code is then that
+        command's optimistic result after a timeout, or the code from before
+        it after a cancellation; ``possible_proto_codes`` lists the rest."""
+        return self._confirmed_provisional
+
+    @property
+    def possible_proto_codes(self) -> frozenset[str | None]:
+        """The codes the installation may really be in: ``confirmed_proto_code``
+        alone, or while that is provisional, also the last confirmed code and
+        each later unconfirmed command's optimistic code. None stands for a
+        state that is not known."""
+        return self._earlier_possible | {self._confirmed_proto_code}
+
+    def record_confirmed_proto_code(
+        self, proto_code: str, *, optimistic: bool = False
+    ) -> None:
+        """Record ``proto_code`` as the installation's state and clear any
+        unconfirmed marker: a panel command's result, the status check before
+        an arm, a manual Refresh, a poll, or a timed-out command's
+        ``optimistic`` code (which the caller then marks unconfirmed).
+
+        An optimistic code is a guess, not a code the alarm reported, so it
+        leaves the unrecognised-state Repairs issue as it is."""
+        self._confirmed_proto_code = proto_code
+        self._confirmed_provisional = False
+        self._earlier_possible = frozenset()
+        if not optimistic:
+            self.track_unrecognised_code(proto_code)
+
+    def track_unrecognised_code(self, proto_code: str) -> None:
+        """Keep the Repairs issue for a state code this integration doesn't
+        model in step with the latest code the alarm reported, including one
+        a poll or a manual Refresh read while a command runs, which is kept
+        out of ``confirmed_proto_code``. Anything that is not a proto letter
+        says nothing about the state and leaves the issue as it is."""
+        if not is_proto_letter(proto_code):
+            return
+        issue_id = self._unrecognised_issue_id
+        # Not only an issue this coordinator raised: another coordinator for
+        # the installation (a second entry's) may have raised it.
+        if proto_code in PROTO_TO_ALARM_STATE:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+            return
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            is_persistent=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="unknown_alarm_state",
+            translation_placeholders={
+                "code": proto_code,
+                "installation": self._installation.alias,
+                "url": f"{PROJECT_URL}/issues",
+            },
+        )
+
+    async def async_shutdown(self) -> None:
+        """Stop polling and take down this installation's unrecognised-state
+        Repairs issue, unless another entry still runs the installation's
+        alarm panels: only that entry's coordinator has entities listening,
+        so only it keeps polling, and without a poll nothing clears the
+        issue."""
+        await super().async_shutdown()
+        if not self._alarm_panels_run_elsewhere():
+            ir.async_delete_issue(self.hass, DOMAIN, self._unrecognised_issue_id)
+
+    def _alarm_panels_run_elsewhere(self) -> bool:
+        """True when another loaded entry for this installation (it was added
+        twice) runs its alarm panels."""
+        # Imported here: the alarm panel platform imports this module.
+        from .alarm_control_panel import main_panel_for
+
+        panel = main_panel_for(self.hass, self._installation.number)
+        return panel is not None and panel.coordinator is not self
+
+    @property
+    def _unrecognised_issue_id(self) -> str:
+        return f"unknown_alarm_state_{self._installation.number}"
+
+    def mark_confirmed_provisional(self, earlier: Iterable[str | None]) -> None:
+        """Flag the recorded code as unconfirmed until a real command result,
+        the status check before an arm, a manual Refresh or a poll replaces
+        it.
+
+        ``earlier`` is ``possible_proto_codes`` read before the unconfirmed
+        command's optimistic code was recorded, plus None if the command's
+        effect is not known.
+        """
+        self._confirmed_provisional = True
+        self._earlier_possible = frozenset(earlier)
+
+    @property
+    def has_peri(self) -> bool:
+        """Return True if perimeter mode is supported."""
+        return self._has_peri
+
+    @property
+    def has_annex(self) -> bool:
+        """Return True if annex mode is supported."""
+        return self._has_annex
+
+    @property
+    def capabilities_populated(self) -> bool:
+        """Return True once has_peri / has_annex have been derived from a
+        real fetch — not the initial False default.
+
+        The options flow uses this to decide whether the coordinator's
+        capability flags are authoritative or whether to fall back to the
+        published capability cache.
+        """
+        return self._capabilities_populated
+
+    @property
+    def capabilities(self) -> frozenset[str]:
+        """Return the supported command capability set."""
+        return self._capabilities
+
+    @property
+    def alarm_state(self) -> AlarmState:
+        """Return the current AlarmState derived from coordinator data.
+
+        Used by sub-panels to read the joint state for axis-preserving
+        transitions. Falls back to all-OFF if no data is available yet.
+        """
+        _default = AlarmState(interior=InteriorMode.OFF, perimeter=PerimeterMode.OFF)
+        if self.data is None:
+            return _default
+        proto_code = self.data.status.status if self.data.status else None
+        if proto_code is None:
+            return _default
+        return PROTO_TO_ALARM_STATE.get(proto_code, _default)
+
+    def populate_capabilities_from_data(
+        self,
+        services: list,
+        capabilities: frozenset[str],
+    ) -> None:
+        """Populate capability fields from already-fetched data.
+
+        Called from async_setup_entry where services and capabilities are
+        already in hand, avoiding a redundant API call during first refresh.
+        Marks the coordinator as populated so _populate_capabilities is a no-op.
+        """
+        if self._capabilities_populated:
+            return
+        self._capabilities = capabilities
+        self._has_peri = detect_peri(self._installation, services, capabilities)
+        self._has_annex = detect_annex(capabilities)
+        self._capabilities_populated = True
+        self._log_capability_detection()
+
+    async def _populate_capabilities(self) -> None:
+        """Detect peri/annex via API.  Runs once per coordinator lifetime.
+
+        This is a fallback path for cases where populate_capabilities_from_data
+        was not called (e.g. unit tests that construct the coordinator directly,
+        or async_setup_entry's get_services failed). On a transient failure here
+        we leave _capabilities_populated=False so the next refresh retries —
+        otherwise a one-off network error would freeze has_peri/has_annex to
+        False for the coordinator lifetime, hiding capability-gated sub-panels
+        until the integration is reloaded.
+        """
+        if self._capabilities_populated:
+            return
+        try:
+            services = await self._client.get_services(self._installation)
+        except VerisureOwaError:
+            return
+        self._capabilities = self._client.get_supported_commands(
+            self._installation.number
+        )
+        self._has_peri = detect_peri(self._installation, services, self._capabilities)
+        self._has_annex = detect_annex(self._capabilities)
+        self._capabilities_populated = True
+        self._log_capability_detection()
+
+    def _log_capability_detection(self) -> None:
+        _LOGGER.debug(
+            "capability detection for %s: has_peri=%s has_annex=%s caps=%s",
+            self._installation.number,
+            self._has_peri,
+            self._has_annex,
+            sorted(self._capabilities),
+        )
+
+    async def _fetch(self) -> AlarmStatusData:
+        status = await self._queue.submit(
+            self._client.get_general_status,
+            self._installation,
+            priority=ApiQueue.BACKGROUND,
+        )
+        return AlarmStatusData(
+            status=status,
+            protom_response=self._client.protom_response,
+        )
+
+    async def _async_update_data(self) -> AlarmStatusData:
+        """Fetch alarm status via the API queue."""
+        await self._populate_capabilities()
+        data = await _fetch_with_session_recovery(
+            self._client, self._fetch, "Alarm status"
+        )
+        proto_code = data.status.status if data.status else None
+        if not is_proto_letter(proto_code):
+            return data
+        assert proto_code is not None  # narrowed by is_proto_letter
+        if self.operation.running:
+            self.track_unrecognised_code(proto_code)
+        else:
+            self.record_confirmed_proto_code(proto_code)
+        return data
+
+
+# ── SentinelCoordinator ──────────────────────────────────────────────────────
+
+
+class SentinelCoordinator(DataUpdateCoordinator[SentinelData]):
+    """Coordinator for sentinel environmental sensor data."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        client: VerisureOwaClient,
+        queue: ApiQueue,
+        installation: Installation,
+        *,
+        service: Service,
+        zone: str,
+        config_entry: ConfigEntry | None = None,
+    ) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=config_entry,
+            name="verisure_owa_sentinel",
+            update_interval=_DEFAULT_SENTINEL_INTERVAL,
+        )
+        self._client = client
+        self._queue = queue
+        self.installation = installation
+        self.service = service
+        self._zone = zone
+
+    async def _fetch_data(self) -> SentinelData:
+        """Fetch sentinel and air quality data via the API queue.
+
+        ``asyncio.gather`` submits both calls at once; the ``ApiQueue`` runs
+        them one after the other, sentinel first.
+        """
+        sentinel, air_quality = await asyncio.gather(
+            self._queue.submit(
+                self._client.get_sentinel_data,
+                self.installation,
+                self.service,
+                priority=ApiQueue.BACKGROUND,
+            ),
+            self._queue.submit(
+                self._client.get_air_quality_data,
+                self.installation,
+                self._zone,
+                priority=ApiQueue.BACKGROUND,
+            ),
+        )
+        return SentinelData(sentinel=sentinel, air_quality=air_quality)
+
+    async def _async_update_data(self) -> SentinelData:
+        """Fetch sentinel data via the API queue."""
+        return await _fetch_with_session_recovery(
+            self._client, self._fetch_data, "Sentinel"
+        )
+
+
+# ── LockCoordinator ──────────────────────────────────────────────────────────
+
+
+class LockCoordinator(DataUpdateCoordinator[LockData]):
+    """Coordinator for smart lock mode status."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        client: VerisureOwaClient,
+        queue: ApiQueue,
+        installation: Installation,
+        *,
+        update_interval: timedelta,
+        config_entry: ConfigEntry | None = None,
+    ) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=config_entry,
+            name="verisure_owa_lock",
+            update_interval=update_interval,
+        )
+        self._client = client
+        self._queue = queue
+        self._installation = installation
+
+    async def _fetch(self) -> LockData:
+        modes = await self._queue.submit(
+            self._client.get_lock_modes,
+            self._installation,
+            priority=ApiQueue.BACKGROUND,
+        )
+        return LockData(modes=modes)
+
+    async def _async_update_data(self) -> LockData:
+        """Fetch lock modes via the API queue."""
+        return await _fetch_with_session_recovery(self._client, self._fetch, "Lock")
+
+
+# ── CameraCoordinator ────────────────────────────────────────────────────────
+
+
+def _thumbnail_is_strictly_newer(a: ThumbnailResponse, b: ThumbnailResponse) -> bool:
+    """Return True iff ``a`` is strictly newer than ``b``.
+
+    Lexicographic compare on the server's ISO timestamp format
+    (``YYYY-MM-DD HH:MM:SS``) — equivalent to chronological order, no
+    timezone math needed since both come from the same server clock.
+    A null/missing timestamp on either side returns False (we don't
+    know which is newer; defer to the caller's default).
+    """
+    a_ts = a.timestamp if a else None
+    b_ts = b.timestamp if b else None
+    if not a_ts or not b_ts:
+        return False
+    return a_ts > b_ts
+
+
+class CameraCoordinator(DataUpdateCoordinator[CameraData]):
+    """Coordinator for camera thumbnails.
+
+    Individual camera failures are logged but don't fail the whole update.
+    Previous thumbnails and full images are preserved across refreshes.
+    """
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        client: VerisureOwaClient,
+        queue: ApiQueue,
+        installation: Installation,
+        *,
+        cameras: list[CameraDevice],
+        full_image_fetcher: Any | None = None,
+        config_entry: ConfigEntry | None = None,
+    ) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=config_entry,
+            name="verisure_owa_camera",
+            update_interval=_DEFAULT_CAMERA_INTERVAL,
+        )
+        self._client = client
+        self._queue = queue
+        self._installation = installation
+        self._cameras = cameras
+        # Optional coalescing fetcher (typically `hub.fetch_full_image`) so
+        # poll-driven full-image requests share an in-flight cache with
+        # capture-driven requests on the same camera.
+        self._full_image_fetcher = full_image_fetcher
+
+    @property
+    def installation(self) -> Installation:
+        """The installation whose cameras this coordinator polls."""
+        return self._installation
+
+    async def _fetch_thumbnails(
+        self, previous: CameraData | None
+    ) -> dict[str, ThumbnailResponse]:
+        """Fetch thumbnails for all cameras, preserving previous on failure.
+
+        SessionExpiredError, WAFBlockedError, and genuine auth failures (a dead
+        refresh token surfacing from a thumbnail fetch) are re-raised so the
+        caller can handle auth/WAF issues at the coordinator level — otherwise a
+        genuinely dead session would be silently swallowed per-camera and never
+        prompt reauth. Other VerisureOwaError instances are treated as
+        individual camera failures — logged and skipped.
+        """
+        thumbnails: dict[str, ThumbnailResponse] = {}
+        for camera in self._cameras:
+            try:
+                thumb = await self._queue.submit(
+                    self._client.get_thumbnail,
+                    self._installation,
+                    camera.device_type,
+                    camera.zone_id,
+                    priority=ApiQueue.BACKGROUND,
+                )
+                thumbnails[camera.zone_id] = thumb
+            except (SessionExpiredError, WAFBlockedError):
+                raise
+            except VerisureOwaError as err:
+                if is_genuine_auth_failure(err):
+                    raise
+                _LOGGER.warning(
+                    "Failed to fetch thumbnail for camera %s (zone %s): %s",
+                    camera.name,
+                    camera.zone_id,
+                    err,
+                )
+                # Preserve previous thumbnail if available
+                if previous and camera.zone_id in previous.thumbnails:
+                    thumbnails[camera.zone_id] = previous.thumbnails[camera.zone_id]
+        return thumbnails
+
+    @staticmethod
+    def _thumbnail_is_recent(
+        thumbnail: ThumbnailResponse, max_age_hours: int = 1
+    ) -> bool:
+        """Check if a thumbnail is recent enough to have a full image available."""
+        parsed = _parse_panel_time(thumbnail.timestamp)
+        if parsed is None:
+            return False
+        age = datetime.now(tz=UTC) - parsed.replace(tzinfo=UTC)
+        return age < timedelta(hours=max_age_hours)
+
+    async def _fetch_full_image(
+        self,
+        thumbnail: ThumbnailResponse,
+        zone_id: str,
+    ) -> bytes | None:
+        """Fetch full-resolution image for a thumbnail, return bytes or None."""
+        if not thumbnail.id_signal or not thumbnail.signal_type:
+            return None
+        if not self._thumbnail_is_recent(thumbnail):
+            _LOGGER.debug(
+                "Skipping full image for zone %s — thumbnail too old (%s)",
+                zone_id,
+                thumbnail.timestamp,
+            )
+            return None
+        try:
+            if self._full_image_fetcher is not None:
+                full_bytes = await self._full_image_fetcher(
+                    self._installation,
+                    thumbnail.id_signal,
+                    thumbnail.signal_type,
+                    priority=ApiQueue.BACKGROUND,
+                )
+            else:
+                full_bytes = await self._queue.submit(
+                    self._client.get_full_image,
+                    self._installation,
+                    thumbnail.id_signal,
+                    thumbnail.signal_type,
+                    priority=ApiQueue.BACKGROUND,
+                )
+        except Exception:  # pylint: disable=broad-exception-caught
+            _LOGGER.warning(
+                "Failed to fetch full image for camera zone %s",
+                zone_id,
+                exc_info=True,
+            )
+            return None
+        if not full_bytes or not full_bytes.startswith(b"\xff\xd8"):
+            _LOGGER.debug(
+                "Full image for zone %s is not valid JPEG (%d bytes)",
+                zone_id,
+                len(full_bytes) if full_bytes else 0,
+            )
+            return None
+        return full_bytes
+
+    async def _async_update_data(self) -> CameraData:
+        """Fetch camera thumbnails and full images for any that changed."""
+        previous = self.data
+        fetched = await _fetch_with_session_recovery(
+            self._client,
+            lambda: self._fetch_thumbnails(previous),
+            "Camera",
+        )
+
+        # Re-read self.data AFTER the fetch — a capture flow may have
+        # called async_set_updated_data() with a strictly newer thumbnail
+        # while we were awaiting get_thumbnail.  Without this merge the
+        # capture's fresh frame gets overwritten by whatever the CDN
+        # served the poll mid-flight (often an older cached frame).
+        current = self.data
+        thumbnails: dict[str, ThumbnailResponse] = {}
+        kept_from_current: set[str] = set()
+        for zone_id, fetched_thumb in fetched.items():
+            current_thumb = current.thumbnails.get(zone_id) if current else None
+            if current_thumb is not None and _thumbnail_is_strictly_newer(
+                current_thumb, fetched_thumb
+            ):
+                thumbnails[zone_id] = current_thumb
+                kept_from_current.add(zone_id)
+            else:
+                thumbnails[zone_id] = fetched_thumb
+
+        # Carry forward full images.  A zone whose thumbnail we kept from
+        # `current` (capture-stored) already has its matching full image
+        # in current.full_images — copy it across; don't re-fetch.
+        full_images: dict[str, bytes] = {}
+        if current:
+            full_images = dict(current.full_images)
+
+        # Fetch full images for thumbnails whose id_signal changed since
+        # the poll-start snapshot.  Skip zones where we kept the
+        # capture-stored thumbnail — that full image is already present.
+        prev_thumbnails = previous.thumbnails if previous else {}
+        for zone_id, thumb in thumbnails.items():
+            if zone_id in kept_from_current:
+                continue
+            prev_thumb = prev_thumbnails.get(zone_id)
+            prev_signal = prev_thumb.id_signal if prev_thumb else None
+            if thumb.id_signal and thumb.id_signal != prev_signal:
+                _LOGGER.debug(
+                    "Thumbnail changed for zone %s (id_signal %s -> %s), "
+                    "fetching full image",
+                    zone_id,
+                    prev_signal,
+                    thumb.id_signal,
+                )
+                full_bytes = await self._fetch_full_image(thumb, zone_id)
+                if full_bytes:
+                    full_images[zone_id] = full_bytes
+
+        return CameraData(thumbnails=thumbnails, full_images=full_images)
+
+
+# ── ActivityCoordinator ──────────────────────────────────────────────────────
+
+
+class ActivityCoordinator(DataUpdateCoordinator[ActivityData]):
+    """Coordinator for the alarm panel activity timeline (xSActV2).
+
+    Remembers the most recently seen idSignals (about
+    _ACTIVITY_SEEN_IDS_LIMIT, never dropping one in the latest poll or the
+    injected store) so each refresh exposes a `new_events` list of
+    just-arrived entries.  The first poll establishes the baseline silently —
+    historical events are not flagged as new.
+    """
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        client: VerisureOwaClient,
+        queue: ApiQueue,
+        installation: Installation,
+        *,
+        config_entry: ConfigEntry | None = None,
+        update_interval: timedelta | None = _DEFAULT_ACTIVITY_INTERVAL,
+    ) -> None:
+        # update_interval=None disables background polling — the coordinator
+        # then only refreshes on demand (e.g. the activity-log card calling
+        # the refresh_activity_log service while it's on screen).
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=config_entry,
+            name="verisure_owa_activity",
+            update_interval=update_interval,
+        )
+        self._client = client
+        self._queue = queue
+        self.installation = installation
+        # Insertion-ordered set, least recently seen first; None until the
+        # first poll has set the baseline.
+        self._seen_ids: dict[str, None] | None = None
+        # Every id the latest poll returned, uncapped; inject_event re-marks
+        # them so a burst of injections can't push a still-polled row out of
+        # _seen_ids.
+        self._polled_ids: list[str] = []
+        # HA-synthesized events; merged with polled at the front of the timeline.
+        # Persisted to disk so they survive HA restarts (load via
+        # async_load_persisted, save automatically on inject_event).
+        self._injected: list[ActivityEvent] = []
+        # Store is lazy — the constructor accesses hass.config.config_dir
+        # which test mocks may not provide.
+        self._store: Store[dict[str, Any]] | None = None
+        self._persisted_loaded = False
+        # One-shot priority for the next _fetch — set by async_manual_refresh,
+        # reset to BACKGROUND after each fetch.
+        self._next_fetch_priority: int = ApiQueue.BACKGROUND
+
+    async def _fetch(self) -> list[ActivityEvent]:
+        priority = self._next_fetch_priority
+        self._next_fetch_priority = ApiQueue.BACKGROUND
+        return await self._queue.submit(
+            self._client.get_activity,
+            self.installation,
+            priority=priority,
+        )
+
+    async def async_manual_refresh(self) -> None:
+        """Trigger an immediate refresh at FOREGROUND priority.
+
+        For interactive UI requests (e.g. card refresh button) where the
+        user expects responsiveness ahead of the next scheduled poll.
+        Still goes through the API queue — rate limiting is preserved.
+        """
+        self._next_fetch_priority = ApiQueue.FOREGROUND
+        await self.async_refresh()
+
+    async def async_fetch_event_image(
+        self, id_signal: str, signal_type: str
+    ) -> bytes | None:
+        """Fetch the decoded image bytes for a specific image-request event.
+
+        Format may be JPEG, PNG, GIF, or WebP — the caller is responsible
+        for sniffing the magic bytes if it needs the MIME type (the
+        ``fetch_activity_image`` entity service does this and returns
+        ``mime_type`` alongside the payload).
+
+        Routes through the API queue at BACKGROUND priority so simultaneous
+        clicks across many rows don't starve the alarm/foreground traffic.
+        Returns None if no image is available.
+        """
+        return await self._queue.submit(
+            self._client.get_full_image,
+            self.installation,
+            id_signal,
+            signal_type,
+            priority=ApiQueue.BACKGROUND,
+        )
+
+    async def _async_update_data(self) -> ActivityData:
+        # Restore persisted injected events before baselining.  If a sensor
+        # already called async_load_persisted in async_added_to_hass, this
+        # is a cheap no-op (idempotent via _persisted_loaded).  Doing it
+        # here too closes the race where the eager-refresh background task
+        # wins over the sensor lifecycle and would otherwise leave restored
+        # events out of the first-poll baseline — causing them to re-fire
+        # on the bus on the next poll.
+        await self.async_load_persisted()
+        events = await _fetch_with_session_recovery(
+            self._client, self._fetch, "Activity"
+        )
+
+        # Tag each polled entry that is the panel's echo of an HA-issued action
+        # with duplicate_of=<injected id>. We keep the echo (its panel `type`
+        # and native-language alias are richer than our generic injected row)
+        # but the card nests it and the bus skips it, so an HA action triggers
+        # automations only once. Pairing is by category + timestamp proximity,
+        # which works regardless of how the panel attributes the echo's user.
+        polled = list(events)
+        self._mark_ha_echoes(self._injected, polled)
+        merged = self._merge(self._injected, polled)
+
+        # update_interval is None ⇒ background polling off: every refresh is
+        # on-demand (card-driven), so remote entries must never fire on the bus
+        # — otherwise opening the card after a gap would replay a burst of stale
+        # verisure_owa_activity events. The first poll also baselines silently.
+        # HA-injected events fire live via inject_event, never from a poll.
+        # The seen ids advance either way so dedup stays correct.
+        if self._seen_ids is None or self.update_interval is None:
+            new_events: list[ActivityEvent] = []
+        else:
+            # Probable duplicates of HA actions never fire — the injected event
+            # already fired live via inject_event.
+            new_events = [
+                ev
+                for ev in merged
+                if ev.id_signal not in self._seen_ids and ev.duplicate_of is None
+            ]
+        self._polled_ids = [ev.id_signal for ev in polled]
+        self._remember_seen(self._ids_to_keep())
+
+        return ActivityData(events=merged, new_events=new_events)
+
+    def _ids_to_keep(self) -> list[str]:
+        """Ids never to forget: the injected store's and the latest poll's,
+        whether or not they fit the 30-row view."""
+        return [ev.id_signal for ev in self._injected] + self._polled_ids
+
+    def _remember_seen(self, ids: list[str]) -> None:
+        """Mark ``ids`` most recently seen, forgetting the stalest past the limit.
+
+        Never forgets an id in ``ids``: they sit at the back, and at most the
+        excess beyond ``max(limit, len(ids))`` is dropped from the front.
+        """
+        seen = self._seen_ids if self._seen_ids is not None else {}
+        for id_signal in ids:
+            seen.pop(id_signal, None)
+            seen[id_signal] = None
+        keep = max(_ACTIVITY_SEEN_IDS_LIMIT, len(ids))
+        for stale in list(seen)[: max(0, len(seen) - keep)]:
+            del seen[stale]
+        self._seen_ids = seen
+
+    @staticmethod
+    def _mark_ha_echoes(
+        injected: list[ActivityEvent], polled: list[ActivityEvent]
+    ) -> None:
+        """Tag polled echoes of HA actions in place via ``duplicate_of``.
+
+        Pairs each injected HA event to at most one polled entry of the same
+        category whose timestamp is within ``_HA_ECHO_MATCH_WINDOW`` (greedy,
+        nearest-in-time first), so two HA actions and their two echoes don't
+        cross-match. Only injectable categories are considered.
+        """
+        injected_times = [
+            (inj, _parse_panel_time(inj.time))
+            for inj in injected
+            if inj.category in HA_INJECTABLE_CATEGORIES
+        ]
+        # Parse each polled timestamp once, not once per injected event.
+        polled_times = [(cand, _parse_panel_time(cand.time)) for cand in polled]
+        claimed: set[int] = set()  # ids() of polled entries already matched
+        for inj, inj_time in injected_times:
+            if inj_time is None:
+                continue
+            best: ActivityEvent | None = None
+            best_delta: timedelta | None = None
+            for cand, cand_time in polled_times:
+                if (
+                    cand_time is None
+                    or id(cand) in claimed
+                    or cand.category != inj.category
+                ):
+                    continue
+                delta = abs(cand_time - inj_time)
+                if delta <= _HA_ECHO_MATCH_WINDOW and (
+                    best_delta is None or delta < best_delta
+                ):
+                    best, best_delta = cand, delta
+            if best is not None:
+                best.duplicate_of = inj.id_signal
+                claimed.add(id(best))
+
+    @staticmethod
+    def _merge(
+        injected: list[ActivityEvent], polled: list[ActivityEvent]
+    ) -> list[ActivityEvent]:
+        """Merge injected + polled events, newest first, capped at the window size.
+
+        When an injected event carries a real server id (e.g. an image
+        request injected from the capture button uses the captured frame's
+        ``id_signal``), the polled timeline returns the same id at the next
+        poll.  Drop the polled duplicate so the user sees one row, with the
+        injected entry's HA-side context preserved.
+
+        Sort the combined list by ``time`` descending (the panel format
+        ``YYYY-MM-DD HH:MM:SS`` is lexicographically sortable) so a polled
+        event newer than an existing injected one floats above it.
+        """
+        injected_ids = {e.id_signal for e in injected}
+        deduped = [e for e in polled if e.id_signal not in injected_ids]
+        combined = injected + deduped
+        combined.sort(key=lambda e: e.time or "", reverse=True)
+        return combined[:_ACTIVITY_TIMELINE_WINDOW]
+
+    def inject_event(self, event: ActivityEvent) -> None:
+        """Add a HA-side synthetic event to the front of the timeline.
+
+        Bypasses the polled-side filter, persists across polls until pushed
+        out of the visible window, and is saved to disk so it survives
+        HA restarts.
+        """
+        self._injected = [event, *self._injected][:_ACTIVITY_TIMELINE_WINDOW]
+        injected_ids = {e.id_signal for e in self._injected}
+        current = self.data
+        prior_polled = (
+            [e for e in current.events if e.id_signal not in injected_ids]
+            if current
+            else []
+        )
+        merged = self._merge(self._injected, prior_polled)
+        # Re-mark the injected store and the latest poll's ids: the new event
+        # so the next poll doesn't re-fire it, the rest so a burst of
+        # injections can't push a still-polled row out of _seen_ids.
+        # Only do so when the baseline is established — otherwise we'd
+        # promote None ("first poll = baseline silently") into a real set
+        # and the first poll would treat its polled rows as new.
+        if self._seen_ids is not None:
+            self._remember_seen(self._ids_to_keep())
+        new_data = ActivityData(events=merged, new_events=[event])
+        self.async_set_updated_data(new_data)
+        # Schedule the persistence write asynchronously — don't block the
+        # caller (typically a service handler responding to a UI click).
+        self.hass.async_create_task(self._async_save_persisted())
+
+    def _get_store(self) -> Store[dict[str, Any]]:
+        if self._store is None:
+            self._store = Store(
+                self.hass,
+                _ACTIVITY_STORE_VERSION,
+                f"{_ACTIVITY_STORE_KEY_PREFIX}_{self.installation.number}",
+            )
+        return self._store
+
+    async def async_load_persisted(self) -> None:
+        """Load injected events from disk.  Idempotent; call once per setup."""
+        if self._persisted_loaded:
+            return
+        self._persisted_loaded = True
+        try:
+            stored = await self._get_store().async_load()
+        except Exception:  # pylint: disable=broad-exception-caught
+            _LOGGER.warning(
+                "Failed to load persisted activity log for %s",
+                self.installation.number,
+                exc_info=True,
+            )
+            return
+        if not stored or not isinstance(stored.get("events"), list):
+            return
+        events: list[ActivityEvent] = []
+        for raw in stored["events"]:
+            try:
+                events.append(ActivityEvent.model_validate(raw))
+            except Exception:  # pylint: disable=broad-exception-caught
+                continue
+        self._injected = events[:_ACTIVITY_TIMELINE_WINDOW]
+        # Leave _seen_ids as None: the first poll's "baseline" branch
+        # (new_events=[] when _seen_ids is None) is what stops both the
+        # restored injected events and the polled history from firing as
+        # bus events on the first post-restart update.
+
+    async def _async_save_persisted(self) -> None:
+        """Write the current injected list to disk."""
+        try:
+            await self._get_store().async_save(
+                {"events": [ev.model_dump() for ev in self._injected]}
+            )
+        except Exception:  # pylint: disable=broad-exception-caught
+            _LOGGER.warning(
+                "Failed to persist activity log for %s",
+                self.installation.number,
+                exc_info=True,
+            )

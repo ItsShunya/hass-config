@@ -1,0 +1,363 @@
+{
+    "config": {
+        "error": {
+            "account_blocked": "A sua conta foi bloqueada pela Verisure. Use 'Esqueci a palavra-passe' no site da Verisure para redefinir a sua palavra-passe e desbloquear a sua conta, depois tente novamente",
+            "invalid_auth": "Nome de utilizador ou palavra-passe inválidos",
+            "cannot_connect": "Não é possível ligar à Verisure",
+            "invalid_otp": "Código de verificação inválido",
+            "otp_expired": "O código de verificação expirou — um novo código será enviado",
+            "otp_send_failed": "Falha ao enviar o código de verificação — tente novamente",
+            "service_error": "Erro do serviço Verisure: {error}"
+        },
+        "abort": {
+            "already_configured": "O serviço já está configurado",
+            "reauth_successful": "Reautenticação bem-sucedida",
+            "reconfigure_successful": "Sessão iniciada novamente",
+            "no_refresh_token": "Início de sessão bem-sucedido, mas a Verisure não devolveu um token de atualização. A integração não pode guardar as credenciais em segurança. Tente novamente mais tarde ou comunique se persistir.",
+            "installation_not_on_account": "Esta conta Verisure não consegue ver a instalação {number}. Inicie sessão com uma conta que tenha acesso a ela.",
+            "signed_in_again_elsewhere": "Enquanto esta janela iniciava sessão, foi iniciada novamente a sessão desta entrada a partir de outra janela, pelo que este início de sessão não foi guardado.",
+            "account_signed_in_again_elsewhere": "Enquanto esta janela iniciava sessão, foi iniciada novamente a sessão desta conta Verisure a partir da janela de outra instalação, pelo que este início de sessão não foi guardado. Se esta instalação continuar sem ligação, inicie sessão novamente.",
+            "already_in_progress": "Já está em curso outra configuração ou início de sessão para esta instalação."
+        },
+        "step": {
+            "reauth_confirm": {
+                "title": "Reautenticar Verisure",
+                "description": "A sua sessão expirou. Introduza novamente a sua palavra-passe para reconectar.",
+                "data": {
+                    "username": "Nome de utilizador",
+                    "password": "Palavra-passe",
+                    "keep_password": "Guardar a minha palavra-passe para que a integração possa voltar a iniciar sessão sozinha"
+                },
+                "data_description": {
+                    "keep_password": "Se marcada, a sua palavra-passe é guardada sem encriptação nos ficheiros de configuração do Home Assistant, onde qualquer pessoa que consiga ler esses ficheiros ou uma cópia de segurança deles a pode ler. Deixe-a desmarcada para guardar apenas a sessão guardada, que não é a sua palavra-passe e, por isso, não serve para nada noutros sítios onde use essa palavra-passe."
+                }
+            },
+            "reconfigure": {
+                "title": "Iniciar sessão novamente na Verisure",
+                "description": "Introduza a sua palavra-passe da Verisure para obter uma nova sessão. Utilize esta opção quando a integração não conseguir ligar-se e não lhe tiver pedido para iniciar sessão novamente.",
+                "data": {
+                    "username": "Nome de utilizador",
+                    "password": "Palavra-passe",
+                    "keep_password": "Guardar a minha palavra-passe para que a integração possa voltar a iniciar sessão sozinha"
+                },
+                "data_description": {
+                    "keep_password": "Se marcada, a sua palavra-passe é guardada sem encriptação nos ficheiros de configuração do Home Assistant, onde qualquer pessoa que consiga ler esses ficheiros ou uma cópia de segurança deles a pode ler. Deixe-a desmarcada para guardar apenas a sessão guardada, que não é a sua palavra-passe e, por isso, não serve para nada noutros sítios onde use essa palavra-passe."
+                }
+            },
+            "user": {
+                "data": {
+                    "country": "Código do país",
+                    "username": "Nome de utilizador",
+                    "password": "Palavra-passe",
+                    "keep_password": "Guardar a minha palavra-passe para que a integração possa voltar a iniciar sessão sozinha"
+                },
+                "data_description": {
+                    "keep_password": "Se marcada, a sua palavra-passe é guardada sem encriptação nos ficheiros de configuração do Home Assistant, onde qualquer pessoa que consiga ler esses ficheiros ou uma cópia de segurança deles a pode ler. Deixe-a desmarcada para guardar apenas a sessão guardada, que não é a sua palavra-passe e, por isso, não serve para nada noutros sítios onde use essa palavra-passe."
+                },
+                "description": "Iniciar sessão na Verisure.",
+                "title": "Iniciar sessão"
+            },
+            "phone_list": {
+                "description": "Para qual número de telefone devemos enviar o código por SMS?",
+                "title": "Verisure 2FA",
+                "data": {
+                    "phones": "Número de telefone"
+                }
+            },
+            "otp_challenge": {
+                "description": "Introduza o código recebido no seu telefone",
+                "title": "Verisure 2FA"
+            },
+            "select_installation": {
+                "title": "Selecionar instalação",
+                "description": "Selecione a instalação a configurar.",
+                "data": {
+                    "installation": "Instalação"
+                }
+            },
+            "options": {
+                "title": "Opções para {installation_name}",
+                "description": "Configurar opções do alarme.",
+                "sections": {
+                    "activity": {
+                        "name": "Registo de atividade e eventos",
+                        "data": {
+                            "enable_activity_polling": "Consultar o registo de atividade uma vez por minuto em segundo plano (para automações por eventos)"
+                        }
+                    },
+                    "advanced": {
+                        "name": "Avançado",
+                        "data": {
+                            "scan_interval": "Intervalo de atualização em segundos (0 desativa as atualizações automáticas)",
+                            "delay_check_operation": "Atraso entre solicitações de API (seg)",
+                            "operation_poll_timeout": "Tempo limite de confirmação (segundos)"
+                        },
+                        "data_description": {
+                            "operation_poll_timeout": "Quanto tempo aguardar a confirmação de uma ação de armar/desarmar pelo painel. Aumente se receber avisos de tempo limite."
+                        }
+                    },
+                    "pin": {
+                        "name": "Código PIN para desarmar",
+                        "data": {
+                            "code": "Código PIN (deixar vazio para não usar PIN)",
+                            "code_arm_required": "Exigir também o código PIN (se existir) para armar o alarme",
+                            "lock_code_required": "Exigir também o código PIN (se existir) para as operações da fechadura"
+                        }
+                    },
+                    "notifications": {
+                        "name": "Notificações de armar forçado",
+                        "data": {
+                            "notify_group": "Serviço de notificação para exceções de armar (ex. mobile_app_phone)",
+                            "force_arm_notifications": "Notificações integradas de armar forçado (desativar para usar as suas próprias automatizações)",
+                            "auto_force_arm": "Mostrar uma caixa de armar forçado automático nos controlos do alarme"
+                        },
+                        "data_description": {
+                            "auto_force_arm": "Quando ativado, a janela de informações do alarme e um cartão Mosaico (Tile) com os Modos do Alarme e a funcionalidade Verisure OWA Open Sensors (e o cartão de alarme obsoleto) mostram uma caixa que arma forçadamente de forma automática ignorando portas/janelas abertas, em vez de esperar a sua confirmação. Só atua num armamento iniciado pelos botões ao lado. A escolha é memorizada por dispositivo no navegador. Deixe desativado se a sua central não suportar o armar forçado."
+                        }
+                    },
+                    "subpanels": {
+                        "name": "Subpainéis adicionais",
+                        "data": {
+                            "enable_perimeter_panel": "Ativar painel de controlo apenas Perímetro",
+                            "enable_annex_panel": "Ativar painel de controlo apenas Anexo",
+                            "enable_interior_panel": "Ativar painel de controlo apenas Interior"
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "title": "Mapeamento dos estados do alarme",
+                "description": "Estas associações aplicam-se apenas ao painel principal. Associe cada ação de alarme do Home Assistant a um modo de alarme Verisure; deixe um campo em branco para ocultar esse botão.{subpanels_note}",
+                "data": {
+                    "map_home": "Casa",
+                    "map_away": "Ausente",
+                    "map_night": "Noite",
+                    "map_vacation": "Férias",
+                    "map_custom": "Personalizado"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "sections": {
+                    "activity": {
+                        "name": "Registo de atividade e eventos",
+                        "data": {
+                            "enable_activity_polling": "Consultar o registo de atividade uma vez por minuto em segundo plano (para automações por eventos)"
+                        }
+                    },
+                    "sign_in": {
+                        "name": "Início de sessão",
+                        "description": "Com esta caixa assinalada, a integração guarda a sua palavra-passe nos ficheiros de configuração do Home Assistant para poder voltar a iniciar sessão sozinha. Se a Verisure rejeitou a palavra-passe guardada, ela já foi removida: volte a iniciar sessão com Reconfigurar para guardar uma nova.",
+                        "data": {
+                            "keep_password": "Guardar a minha palavra-passe para que a integração possa voltar a iniciar sessão sozinha"
+                        },
+                        "data_description": {
+                            "keep_password": "Desmarque e guarde para apagar de imediato a palavra-passe guardada, sem iniciar sessão. Para voltar a guardar a palavra-passe, use Reconfigurar, onde a escreve."
+                        }
+                    },
+                    "advanced": {
+                        "name": "Avançado",
+                        "data": {
+                            "scan_interval": "Intervalo de atualização em segundos (0 desativa as atualizações automáticas)",
+                            "delay_check_operation": "Atraso entre solicitações de API (seg)",
+                            "operation_poll_timeout": "Tempo limite de confirmação (segundos)"
+                        },
+                        "data_description": {
+                            "operation_poll_timeout": "Quanto tempo aguardar a confirmação de uma ação de armar/desarmar pelo painel. Aumente se receber avisos de tempo limite."
+                        }
+                    },
+                    "pin": {
+                        "name": "Código PIN para desarmar",
+                        "data": {
+                            "code": "Código PIN (deixar vazio para não usar PIN)",
+                            "code_arm_required": "Exigir também o código PIN (se existir) para armar o alarme",
+                            "lock_code_required": "Exigir também o código PIN (se existir) para as operações da fechadura"
+                        }
+                    },
+                    "notifications": {
+                        "name": "Notificações de armar forçado",
+                        "data": {
+                            "notify_group": "Serviço de notificação para exceções de armar (ex. mobile_app_phone)",
+                            "force_arm_notifications": "Notificações integradas de armar forçado (desativar para usar as suas próprias automatizações)",
+                            "auto_force_arm": "Mostrar uma caixa de armar forçado automático nos controlos do alarme"
+                        },
+                        "data_description": {
+                            "auto_force_arm": "Quando ativado, a janela de informações do alarme e um cartão Mosaico (Tile) com os Modos do Alarme e a funcionalidade Verisure OWA Open Sensors (e o cartão de alarme obsoleto) mostram uma caixa que arma forçadamente de forma automática ignorando portas/janelas abertas, em vez de esperar a sua confirmação. Só atua num armamento iniciado pelos botões ao lado. A escolha é memorizada por dispositivo no navegador. Deixe desativado se a sua central não suportar o armar forçado."
+                        }
+                    },
+                    "subpanels": {
+                        "name": "Subpainéis adicionais",
+                        "data": {
+                            "enable_perimeter_panel": "Ativar painel de controlo apenas Perímetro",
+                            "enable_annex_panel": "Ativar painel de controlo apenas Anexo",
+                            "enable_interior_panel": "Ativar painel de controlo apenas Interior"
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "title": "Mapeamento dos estados do alarme",
+                "description": "Estas associações aplicam-se apenas ao painel principal. Associe cada ação de alarme do Home Assistant a um modo de alarme Verisure; deixe um campo em branco para ocultar esse botão.{subpanels_note}",
+                "data": {
+                    "map_home": "Casa",
+                    "map_away": "Ausente",
+                    "map_night": "Noite",
+                    "map_vacation": "Férias",
+                    "map_custom": "Personalizado"
+                }
+            },
+            "lock_automations": {
+                "title": "Automatização de fechaduras",
+                "description": "Configure o comportamento automático de bloqueio e desarmar para cada fechadura.\n\n⚠️ Desative primeiro o bloqueio automático na app Verisure: o seu bloqueio automático por temporizador entra em conflito com o bloqueio ao armar desta integração.\n\nNota: isto é diferente da app Verisure. A app desbloqueia a fechadura quando o alarme é desarmado; esta integração, em vez disso, desarma o alarme quando a fechadura é desbloqueada, e apenas quando é desbloqueada através do Home Assistant.",
+                "sections": {
+                    "lock__01": {
+                        "name": "{lock_alias_01}",
+                        "data": {
+                            "lock_on_arm__interior": "Bloquear automaticamente ao armar o alarme Interior",
+                            "lock_on_arm__perimeter": "Bloquear automaticamente ao armar o alarme Perímetro",
+                            "lock_on_arm__annex": "Bloquear automaticamente ao armar o alarme Anexo",
+                            "unlock_disarms__interior": "Desarmar o alarme Interior antes de desbloquear",
+                            "unlock_disarms__perimeter": "Desarmar o alarme Perímetro antes de desbloquear",
+                            "unlock_disarms__annex": "Desarmar o alarme Anexo antes de desbloquear"
+                        }
+                    },
+                    "lock__02": {
+                        "name": "{lock_alias_02}",
+                        "data": {
+                            "lock_on_arm__interior": "Bloquear automaticamente ao armar o alarme Interior",
+                            "lock_on_arm__perimeter": "Bloquear automaticamente ao armar o alarme Perímetro",
+                            "lock_on_arm__annex": "Bloquear automaticamente ao armar o alarme Anexo",
+                            "unlock_disarms__interior": "Desarmar o alarme Interior antes de desbloquear",
+                            "unlock_disarms__perimeter": "Desarmar o alarme Perímetro antes de desbloquear",
+                            "unlock_disarms__annex": "Desarmar o alarme Anexo antes de desbloquear"
+                        }
+                    },
+                    "lock__03": {
+                        "name": "{lock_alias_03}",
+                        "data": {
+                            "lock_on_arm__interior": "Bloquear automaticamente ao armar o alarme Interior",
+                            "lock_on_arm__perimeter": "Bloquear automaticamente ao armar o alarme Perímetro",
+                            "lock_on_arm__annex": "Bloquear automaticamente ao armar o alarme Anexo",
+                            "unlock_disarms__interior": "Desarmar o alarme Interior antes de desbloquear",
+                            "unlock_disarms__perimeter": "Desarmar o alarme Perímetro antes de desbloquear",
+                            "unlock_disarms__annex": "Desarmar o alarme Anexo antes de desbloquear"
+                        }
+                    },
+                    "lock__04": {
+                        "name": "{lock_alias_04}",
+                        "data": {
+                            "lock_on_arm__interior": "Bloquear automaticamente ao armar o alarme Interior",
+                            "lock_on_arm__perimeter": "Bloquear automaticamente ao armar o alarme Perímetro",
+                            "lock_on_arm__annex": "Bloquear automaticamente ao armar o alarme Anexo",
+                            "unlock_disarms__interior": "Desarmar o alarme Interior antes de desbloquear",
+                            "unlock_disarms__perimeter": "Desarmar o alarme Perímetro antes de desbloquear",
+                            "unlock_disarms__annex": "Desarmar o alarme Anexo antes de desbloquear"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "services": {
+        "force_arm": {
+            "name": "Forçar armar",
+            "description": "Obsoleto — usa `verisure_owa.force_arm` em vez disso.\n\nForçar o armar do alarme, ignorando exceções não bloqueantes (ex. janelas abertas) de uma tentativa de armar anterior falhada.",
+            "fields": {
+                "code": {
+                    "name": "Código PIN",
+                    "description": "Opcional. Se fornecido, é validado com o PIN configurado antes de concluir o armar forçado. A maioria das chamadas não precisa disso — a tentativa de armar anterior que gerou o contexto de armar forçado já validou o PIN."
+                }
+            }
+        },
+        "force_arm_cancel": {
+            "name": "Cancelar armar forçado",
+            "description": "Obsoleto — usa `verisure_owa.force_arm_cancel` em vez disso.\n\nCancelar um armar forçado pendente e dispensar a notificação de exceção de armação."
+        }
+    },
+    "exceptions": {
+        "invalid_pin_code": {
+            "message": "Código PIN inválido para {entity_id}"
+        },
+        "unsupported_alarm_mode": {
+            "message": "Este modo de alarme não é suportado pelo seu painel (rejeitado: {tried}). Verifique os mapeamentos de estado nas opções da integração (Definições → Dispositivos e Serviços → Verisure OWA → Configurar)."
+        },
+        "unsupported_alarm_mode_subpanel": {
+            "message": "Este modo de alarme não é suportado pelo seu painel (rejeitado: {tried}). Foi desativado neste subpainel e não será oferecido novamente."
+        },
+        "no_supported_command": {
+            "message": "Nenhum comando compatível encontrado para este painel. Verifique os mapeamentos de estado nas opções da integração (Definições → Dispositivos e Serviços → Verisure OWA → Configurar)."
+        },
+        "operation_in_progress": {
+            "message": "O alarme está ocupado com outro comando. Tente novamente dentro de momentos."
+        },
+        "arm_refused_unknown_state": {
+            "message": "Não é possível armar {installation}: o alarme indica um estado que esta integração não reconhece (código {code}). Consulte Definições → Reparações."
+        }
+    },
+    "issues": {
+        "orphan_verisure_owa_directory": {
+            "title": "Pasta verisure_owa obsoleta",
+            "description": "Uma pasta obsoleta `verisure_owa` ficou em `{path}` de uma atualização anterior. Já não faz nada e pode ser apagada com segurança. Apague a pasta e reinicie o Home Assistant para limpar este aviso."
+        },
+        "duplicate_entry": {
+            "title": "Instalação adicionada duas vezes",
+            "description": "O Verisure OWA tem duas entradas para {installation} com a mesma conta. Remova uma delas em Definições → Dispositivos e Serviços → Verisure OWA. Este aviso desaparece quando só restar uma."
+        },
+        "unknown_alarm_state": {
+            "title": "Estado do alarme não reconhecido",
+            "description": "A Verisure indica o código de estado do alarme {code} para {installation}, que esta integração ainda não reconhece. Desarmar continua a funcionar, mas armar é recusado até o alarme indicar um estado conhecido. Comunique o código em {url} para que possa ser suportado. Este aviso desaparece quando voltar um estado conhecido."
+        },
+        "sign_in_again": {
+            "title": "Inicie sessão novamente na Verisure",
+            "description": "A Verisure precisa que inicie sessão novamente como {username}; até lá, o Home Assistant não consegue ligar-se ao seu alarme. Abra Definições → Dispositivos e Serviços → Verisure OWA e siga o aviso para iniciar sessão com a sua palavra-passe (e o código que a Verisure lhe envia por SMS, se o pedir). Este aviso desaparece quando o início de sessão for bem-sucedido."
+        },
+        "account_blocked": {
+            "title": "A Verisure bloqueou a sua conta",
+            "description": "A Verisure bloqueou a conta {username}, por isso o Home Assistant não consegue ligar-se ao seu alarme. Use 'Esqueci a palavra-passe' no site da Verisure para redefinir a palavra-passe e desbloquear a conta; depois abra Definições → Dispositivos e Serviços → Verisure OWA e siga o aviso para iniciar sessão com a nova palavra-passe. Este aviso desaparece quando o início de sessão for bem-sucedido."
+        },
+        "renewal_refused": {
+            "title": "A Verisure continua a recusar a sessão guardada",
+            "description": "Há pelo menos 15 minutos que a Verisure recusa renovar a sessão guardada de {username}, por isso o Home Assistant não consegue ligar-se ao seu alarme. É muitas vezes um problema temporário da Verisure: a integração continua a tentar de poucos em poucos minutos e recupera sozinha se a Verisure voltar a aceitá-la. Se isso não acontecer, inicie sessão novamente: abra Definições → Dispositivos e Serviços → Verisure OWA, abra o menu (⋮) da entrada e escolha Reconfigurar. Este aviso desaparece quando uma renovação ou um início de sessão for bem-sucedido."
+        },
+        "cannot_reach_verisure": {
+            "title": "O Home Assistant não consegue ligar-se à Verisure",
+            "description": "Há pelo menos uma hora que nenhum pedido do Home Assistant à Verisure para {username} funciona. A integração continua a tentar de poucos em poucos minutos e recupera sozinha quando a Verisure voltar a responder. Verifique se a app da Verisure funciona e se o Home Assistant está ligado à internet. Se a app da Verisure funcionar e este aviso continuar, comunique o problema com o registo em {url}. Este aviso desaparece quando um pedido à Verisure for bem-sucedido."
+        }
+    },
+    "entity": {
+        "event": {
+            "activity": {
+                "name": "Atividade",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "armed": "Armado",
+                            "armed_with_exceptions": "Armado com exceções",
+                            "arming_failed": "Falha ao armar",
+                            "disarmed": "Desarmado",
+                            "alarm": "Alarme",
+                            "alarm_resolved": "Alarme resolvido",
+                            "tampering": "Adulteração",
+                            "sabotage": "Sabotagem",
+                            "image_request": "Pedido de imagem",
+                            "power_cut": "Corte de energia",
+                            "power_restored": "Energia restaurada",
+                            "status_check": "Verificação de estado",
+                            "communication_failed": "Falha de comunicação",
+                            "communication_restored": "Comunicação restaurada",
+                            "door_opened": "Porta aberta",
+                            "door_closed": "Porta fechada",
+                            "routine_executed": "Rotina executada",
+                            "tag_or_remote_activated": "Tag ou comando ativado",
+                            "high_temperature": "Temperatura elevada",
+                            "unknown": "Evento desconhecido"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

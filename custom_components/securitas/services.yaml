@@ -1,0 +1,56 @@
+# Service descriptions for the picker (Developer Tools → Actions, automation
+# editor). Translation entries in translations/<lang>.json override these per
+# language; this file is the English fallback and also documents the
+# services for developers reading the source.
+#
+# The verisure_owa.* aliases get their picker descriptions programmatically
+# via async_set_service_schema in __init__.py (no per-domain services.yaml
+# is possible for a foreign domain).
+
+force_arm:
+  description: |
+    Deprecated — use `verisure_owa.force_arm` instead.
+
+    Force-arm the alarm, overriding non-blocking exceptions (e.g. open
+    windows) from a previous failed arm attempt.
+  target:
+    entity:
+      integration: securitas
+      domain: alarm_control_panel
+  fields:
+    code:
+      example: "1234"
+      selector:
+        text:
+          type: password
+
+force_arm_cancel:
+  description: |
+    Deprecated — use `verisure_owa.force_arm_cancel` instead.
+
+    Cancel a pending force-arm and dismiss the arming-exception notification.
+  target:
+    entity:
+      integration: securitas
+      domain: alarm_control_panel
+
+suppress_arm_exception_prompt:
+  description: |
+    Use `verisure_owa.suppress_arm_exception_prompt` instead.
+
+    Suppress the next "force-arm required" prompt for this panel and send a
+    "force-armed" confirmation instead. If no force-arm follows within 15
+    seconds of the arm being blocked, the normal arm-blocked notification is
+    sent after all. Fired by the auto-force-arm option (in the alarm's More
+    Info dialog, the Tile card or the alarm card) as it arms; not intended for
+    manual use.
+  target:
+    entity:
+      integration: securitas
+      domain: alarm_control_panel
+
+## refresh_activity_log, fetch_activity_image, refresh_alarm and
+## capture_image are v5+ services available ONLY under verisure_owa.*
+## (registered programmatically in __init__.py via _register_verisure_owa_entity_service).
+## No securitas.* twin exists; backwards-compat isn't needed since none
+## of them existed under securitas.* in any released version.
