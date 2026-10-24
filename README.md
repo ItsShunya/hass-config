@@ -121,7 +121,7 @@ yamllint --strict .
 python .github/scripts/check_references.py
 ```
 
-Separately, the [Renovate](https://github.com/apps/renovate) app keeps an **Updates available** issue listing newer upstream releases of Home Assistant and the vendored components. See [docs/vendored.md](./docs/vendored.md).
+Separately, the [Renovate](https://github.com/apps/renovate) app keeps an **Updates available** issue listing newer upstream releases of Home Assistant and the vendored components, and opens a pull request when the GitHub Actions used by these workflows have a new version. See [docs/vendored.md](./docs/vendored.md).
 
 A green workflow doesn't cover the integrations set up from the UI, which live in `.storage/` on the server. Still check the logs after deploying.
 

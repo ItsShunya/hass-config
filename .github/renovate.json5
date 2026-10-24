@@ -15,6 +15,17 @@
   // integration's Python requirements, which we don't manage.
   enabledManagers: ["custom.regex", "github-actions"],
 
+  packageRules: [
+    {
+      // Unlike the vendored code, bumping an action is the whole update, so
+      // open one grouped PR right away; CI runs on it before merging.
+      description: "GitHub Actions used by the workflows",
+      matchManagers: ["github-actions"],
+      dependencyDashboardApproval: false,
+      groupName: "GitHub Actions",
+    },
+  ],
+
   // Integrations and cards use "loose" versioning: the default one skips the
   // map extractor's "v3.0.0-alpha-N" releases entirely, and strict semver
   // sorts alpha-9 above alpha-24.
