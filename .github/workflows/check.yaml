@@ -1,0 +1,48 @@
+name: Check configuration
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint and references
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install tools
+        run: pip install yamllint pyyaml
+
+      - name: yamllint
+        run: yamllint --strict .
+
+      # check_config below does not read YAML dashboards, so this catches
+      # missing includes, dashboard files and /local/ files instead.
+      - name: Referenced files exist
+        run: python .github/scripts/check_references.py
+
+  home-assistant:
+    name: Home Assistant check_config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Test against the version the server runs (see .HA_VERSION in README).
+      - name: Read Home Assistant version
+        id: version
+        run: echo "version=$(cat .HA_VERSION)" >> "$GITHUB_OUTPUT"
+
+      # secrets.yaml is not in git; an empty one lets !secret lookups fail
+      # with a clear message instead of a missing-file error.
+      - name: Run check_config
+        run: |
+          touch secrets.yaml
+          docker run --rm -v "$PWD:/config" \
+            "ghcr.io/home-assistant/home-assistant:${{ steps.version.outputs.version }}" \
+            python -m homeassistant --script check_config -c /config

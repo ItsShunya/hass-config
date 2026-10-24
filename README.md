@@ -108,7 +108,20 @@ There is a single dashboard, **General** (`dashboards/general/`), with two views
 
 ## Continuous Integration (CI)
 
-Not set up yet. Until it is, run the configuration check from [Deploying changes](#deploying-changes) before every deploy.
+The [Check configuration](./.github/workflows/check.yaml) workflow runs on every push and pull request:
+
+- **yamllint** checks the syntax and style of our own YAML files, using the rules in `.yamllint`. Vendored files are skipped.
+- **Referenced files** ([`check_references.py`](./.github/scripts/check_references.py)) follows `configuration.yaml` through every `!include`, dashboard `filename` and `/local/` URL, and fails if a target is missing or isn't valid YAML. Home Assistant's own check doesn't read YAML dashboards, so this is what catches a broken dashboard.
+- **check_config** runs Home Assistant's configuration check in the official container, at the version in `.HA_VERSION`.
+
+To run the first two locally before pushing (both need Python; `pip install yamllint pyyaml`):
+
+```sh
+yamllint --strict .
+python .github/scripts/check_references.py
+```
+
+A green workflow doesn't cover the integrations set up from the UI, which live in `.storage/` on the server. Still check the logs after deploying.
 
 ---
 

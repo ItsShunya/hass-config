@@ -1,0 +1,25 @@
+# yamllint configuration (https://yamllint.readthedocs.io).
+# Run locally with `yamllint --strict .`; CI runs the same command.
+extends: default
+
+# Third-party files are linted upstream, not here. The last two are
+# gitignored but can exist in a local clone.
+ignore: |
+  custom_components/
+  www/plugins/
+  themes/
+  blueprints/*/homeassistant/
+  secrets.yaml
+
+rules:
+  # Home Assistant files don't start with "---".
+  document-start: disable
+  line-length:
+    max: 120
+  comments:
+    # Allow commented-out keys ("#bluetooth:") and short inline notes.
+    require-starting-space: false
+    min-spaces-from-content: 1
+  truthy:
+    # GitHub Actions workflows use "on:" as a key.
+    check-keys: false
