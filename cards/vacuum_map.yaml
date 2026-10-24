@@ -1,7 +1,8 @@
 type: custom:xiaomi-vacuum-map-card
 title: ''
 vacuum_platform: al-one/hass-xiaomi-miot
-entity: vacuum.dreame_r2205_ad79_robot_cleaner
+# Anchor (&vacuum) reused below as *vacuum, so the entity is set only here.
+entity: &vacuum vacuum.dreame_r2205_ad79_robot_cleaner
 grid_options:
   rows: 8
 
@@ -27,11 +28,11 @@ icons:
       action: call-service
       service: vacuum.start
       service_data:
-        entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+        entity_id: *vacuum
     conditions:
-      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+      - entity: *vacuum
         value_not: cleaning
-      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+      - entity: *vacuum
         value_not: returning
   # Pause current routine. The r2205 has no pause action: xiaomi_miot maps
   # vacuum.stop to "stop-sweeping", which pauses the task on Dreame robots.
@@ -41,15 +42,15 @@ icons:
       action: call-service
       service: vacuum.stop
       service_data:
-        entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+        entity_id: *vacuum
     conditions:
-      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+      - entity: *vacuum
         value_not: docked
-      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+      - entity: *vacuum
         value_not: idle
-      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+      - entity: *vacuum
         value_not: error
-      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+      - entity: *vacuum
         value_not: paused
   # Return to the dock to charge.
   - icon: mdi:home-map-marker
@@ -58,11 +59,11 @@ icons:
       action: call-service
       service: vacuum.return_to_base
       service_data:
-        entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+        entity_id: *vacuum
     conditions:
-      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+      - entity: *vacuum
         value_not: docked
-      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+      - entity: *vacuum
         value_not: returning
   # Locate roomba (by sound).
   - icon: mdi:map-marker
@@ -71,7 +72,7 @@ icons:
       action: call-service
       service: vacuum.locate
       service_data:
-        entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+        entity_id: *vacuum
 
 # Configurable actions in the map.
 # Both modes call the MIoT "start-clean" action (siid 4, aiid 1) of the
