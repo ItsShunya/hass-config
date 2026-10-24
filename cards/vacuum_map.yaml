@@ -3,8 +3,6 @@ title: ''
 vacuum_platform: al-one/hass-xiaomi-miot
 # Anchor (&vacuum) reused below as *vacuum, so the entity is set only here.
 entity: &vacuum vacuum.dreame_r2205_ad79_robot_cleaner
-grid_options:
-  rows: 8
 
 # Map's camera source comes from Xiaomi Cloud Map Extractor.
 map_source:
@@ -65,7 +63,7 @@ icons:
         value_not: docked
       - entity: *vacuum
         value_not: returning
-  # Locate roomba (by sound).
+  # Locate the vacuum (by sound).
   - icon: mdi:map-marker
     tooltip: Locate
     tap_action:
@@ -199,7 +197,7 @@ map_modes:
           - - -6700
             - 650
 
-# Extra customuzable tiles at the bottom for sensors/buttons.
+# Extra customizable tiles at the bottom for sensors/buttons.
 tiles:
   - icon: mdi:brush
     label: Main brush time remaining (h)
@@ -221,8 +219,8 @@ tiles:
 card_mod:
   style: |
     ha-card {
-      #--map-card-primary-color: blue;
-      #--map-card-zoomer-background: rgba(155, 130, 131, 0.7);
+      /* --map-card-primary-color: blue; */
+      /* --map-card-zoomer-background: rgba(155, 130, 131, 0.7); */
       display: flex !important;
       align-items: stretch;
       flex-wrap: wrap;
