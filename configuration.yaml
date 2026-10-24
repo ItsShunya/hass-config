@@ -34,14 +34,16 @@ frontend:
 
 lovelace:
   resource_mode: yaml
+  # Bump ?v= on every card update so browsers drop the cached file
+  # (see docs/vendored.md).
   resources:
-    - url: /local/plugins/xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js
+    - url: /local/plugins/xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js?v=2.3.2
       type: module
-    - url: /local/plugins/card-mod/card-mod.js
+    - url: /local/plugins/card-mod/card-mod.js?v=4.2.1
       type: module
-    - url: /local/plugins/weather-forecast-card/weather-forecast-card.js
+    - url: /local/plugins/weather-forecast-card/weather-forecast-card.js?v=1.0.0
       type: module
-    - url: /local/plugins/stack-in-card/stack-in-card.js
+    - url: /local/plugins/stack-in-card/stack-in-card.js?v=0.2.0
       type: module
   dashboards:
     lovelace-general:

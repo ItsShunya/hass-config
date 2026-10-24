@@ -67,7 +67,9 @@ While this repository is primarily for personal use, I welcome constructive feed
 
 ## License
 
-This repository is shared under the [Apache-2.0 License](./LICENSE). You are free to use and modify the code, but please give credit where it's due.
+This repository is shared under the [Apache-2.0 License](./LICENSE.md). You are free to use and modify the code, but please give credit where it's due.
+
+The third-party integrations in `custom_components/` and cards in `www/plugins/` are vendored copies that keep their own licenses (Apache-2.0 or MIT). See [docs/vendored.md](./docs/vendored.md) for their sources, versions and how to update them.
 
 ---
 
