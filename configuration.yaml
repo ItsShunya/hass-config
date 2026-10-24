@@ -50,12 +50,6 @@ lovelace:
       title: General
       icon: mdi:home
       show_in_sidebar: true
-    lovelace-clean:
-      mode: yaml
-      filename: dashboards/clean/dashboard.yaml
-      title: Clean
-      icon: mdi:broom
-      show_in_sidebar: true
 
 logger:
   default: info
