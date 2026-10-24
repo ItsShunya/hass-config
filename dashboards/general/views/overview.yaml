@@ -4,14 +4,11 @@ path: overview
 type: sections
 max_columns: 10
 dense_section_placement: true
-cards: []
 header:
   layout: start
   badges_position: bottom
   badges_wrap: scroll
 show_icon_and_title: false
-top_margin: false
-subview: false
 sections:
   - type: grid
     cards:
