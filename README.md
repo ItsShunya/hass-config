@@ -23,6 +23,8 @@ The repository is structured following the usual Home Assistant installation to 
 - **`dashboards/`**: Contains individual dashboard files.
   - Each subdirectory contains a set of YAML files defining different views or layouts.
 - **`secrets.yaml`**: Stores sensitive information (like passwords and API keys) referenced elsewhere in the configuration.
+- **`.HA_VERSION`**: The Home Assistant version this configuration was last tested with. It must match the container image tag being run.
+  - When upgrading Home Assistant, bump the image tag there and update this file in the same step (e.g. `printf '2026.2.2' > .HA_VERSION`).
 
 
 ---
