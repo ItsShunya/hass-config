@@ -20,9 +20,9 @@ calibration_source:
 
 # List of icons in the main bar (e.g. Play, Stop, etc).
 icons:
-  # Start clean routine.
+  # Start clean routine, or resume it when paused.
   - icon: mdi:play
-    tooltip: Start
+    tooltip: Start / Resume
     tap_action:
       action: call-service
       service: vacuum.start
@@ -30,10 +30,13 @@ icons:
         entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
     conditions:
       - entity: vacuum.dreame_r2205_ad79_robot_cleaner
-        value: docked
-  # Pause current routine.
-  - icon: mdi:stop
-    tooltip: Stop
+        value_not: cleaning
+      - entity: vacuum.dreame_r2205_ad79_robot_cleaner
+        value_not: returning
+  # Pause current routine. The r2205 has no pause action: xiaomi_miot maps
+  # vacuum.stop to "stop-sweeping", which pauses the task on Dreame robots.
+  - icon: mdi:pause
+    tooltip: Pause
     tap_action:
       action: call-service
       service: vacuum.stop
