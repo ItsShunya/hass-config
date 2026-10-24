@@ -51,10 +51,10 @@ lovelace:
       icon: mdi:home
       show_in_sidebar: true
 
+# Only log warnings and errors. To debug an integration temporarily, use the
+# logger.set_level action (e.g. custom_components.xiaomi_miot: debug).
 logger:
-  default: info
-  logs:
-    custom_components.xiaomi_cloud_map_extractor: debug
+  default: warning
 
 # The home-assistant server lives behind a proxy.
 http:
