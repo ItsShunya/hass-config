@@ -71,39 +71,48 @@ icons:
         entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
 
 # Configurable actions in the map.
+# Both modes call the MIoT "start-clean" action (siid 4, aiid 1) of the
+# dreame.vacuum.r2205 spec. piid 1 is the work mode (18 = rooms, 19 = zone)
+# and piid 10 the JSON task, where suction is 1 (Standard) and water 2 (Medium):
+#   rooms: [room_id, repeats, suction, water, order]
+#   zone:  [x1, y1, x2, y2, repeats, suction, water]
 map_modes:
-  - name: Zone cleanup
+  - template: vacuum_clean_zone
+    name: Zone cleanup
     icon: mdi:select-drag
-    run_immediately: false
-    coordinates_rounding: true
-    coordinates_to_meters_divider: 1000
-    selection_type: MANUAL_RECTANGLE
-    max_selections: 10
-    repeats_type: EXTERNAL
-    max_repeats: 3
-    service_call_schema:
-      service: dreame_vacuum.vacuum_clean_zone
-      service_data:
-        entity_id: '[[entity_id]]'
-        zone: '[[selection]]'
-        repeats: '[[repeats]]'
-    predefined_selections: []
-    variables: {}
-  - name: Rooms
-    icon: mdi:floor-plan
-    run_immediately: false
-    coordinates_rounding: true
-    coordinates_to_meters_divider: 1000
-    selection_type: ROOM
     max_selections: 1
     repeats_type: EXTERNAL
     max_repeats: 3
     service_call_schema:
-      service: dreame_vacuum.vacuum_clean_segment
+      service: xiaomi_miot.call_action
       service_data:
         entity_id: '[[entity_id]]'
-        segments: '[[selection]]'
-        repeats: '[[repeats]]'
+        siid: 4
+        aiid: 1
+        params:
+          - piid: 1
+            value: 19
+          - piid: 10
+            value: '{"areas":[[[[selection_unwrapped]],[[repeats]],1,2]]}'
+        force_params: true
+  - template: vacuum_clean_segment
+    name: Rooms
+    icon: mdi:floor-plan
+    max_selections: 1
+    repeats_type: EXTERNAL
+    max_repeats: 3
+    service_call_schema:
+      service: xiaomi_miot.call_action
+      service_data:
+        entity_id: '[[entity_id]]'
+        siid: 4
+        aiid: 1
+        params:
+          - piid: 1
+            value: 18
+          - piid: 10
+            value: '{"selects":[[[[selection_unwrapped]],[[repeats]],1,2,1]]}'
+        force_params: true
     predefined_selections:
       - id: 1
         outline:
@@ -185,24 +194,6 @@ map_modes:
             - 5000
           - - -6700
             - 650
-    variables: {}
-  - name: Clean Spot
-    icon: mdi:map-marker-plus
-    run_immediately: false
-    coordinates_rounding: true
-    coordinates_to_meters_divider: 1000
-    selection_type: MANUAL_POINT
-    max_selections: 999
-    repeats_type: EXTERNAL
-    max_repeats: 3
-    service_call_schema:
-      service: dreame_vacuum.vacuum_clean_spot
-      service_data:
-        entity_id: '[[entity_id]]'
-        points: '[[selection]]'
-        repeats: '[[repeats]]'
-    predefined_selections: []
-    variables: {}
 
 # Extra customuzable tiles at the bottom for sensors/buttons.
 tiles:
