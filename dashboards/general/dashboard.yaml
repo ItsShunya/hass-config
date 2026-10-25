@@ -1,4 +1,6 @@
 title: General
 views:
   - !include views/overview.yaml
-  - !include views/vacuum.yaml
+  - !include views/cleaning.yaml
+  - !include views/calendar.yaml
+  - !include views/music.yaml

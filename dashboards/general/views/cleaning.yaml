@@ -1,0 +1,9 @@
+title: Cleaning
+icon: mdi:robot-vacuum
+path: cleaning
+type: custom:grid-layout
+layout: !include ../layout.yaml
+cards:
+  - !include ../../../cards/menu.yaml
+  - !include ../../../cards/weather_compact.yaml
+  - !include ../../../cards/vacuum_map.yaml

@@ -27,6 +27,7 @@ Notes:
 | Folder | Upstream | Version | License |
 |---|---|---|---|
 | `www/plugins/card-mod` | [thomasloven/lovelace-card-mod](https://github.com/thomasloven/lovelace-card-mod) | `v4.2.1` | MIT |
+| `www/plugins/layout-card` | [thomasloven/lovelace-layout-card](https://github.com/thomasloven/lovelace-layout-card) | `v2.4.7` | MIT |
 | `www/plugins/stack-in-card` | [custom-cards/stack-in-card](https://github.com/custom-cards/stack-in-card) | `0.2.0` | MIT |
 | `www/plugins/weather-forecast-card` | [troinine/ha-weather-forecast-card](https://github.com/troinine/ha-weather-forecast-card) | `v1.0.0` | MIT |
 | `www/plugins/xiaomi-vacuum-map-card` | [PiotrMachowski/lovelace-xiaomi-vacuum-map-card](https://github.com/PiotrMachowski/lovelace-xiaomi-vacuum-map-card) | `v2.3.2` | MIT |
@@ -57,7 +58,7 @@ curl -sL https://github.com/PiotrMachowski/lovelace-xiaomi-vacuum-map-card/relea
   -o www/plugins/xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js
 ```
 
-card-mod publishes no release files; take `card-mod.js` from the tag instead (`https://raw.githubusercontent.com/thomasloven/lovelace-card-mod/<tag>/card-mod.js`).
+card-mod and layout-card publish no release files; take `card-mod.js` or `layout-card.js` from the tag instead (e.g. `https://raw.githubusercontent.com/thomasloven/lovelace-card-mod/<tag>/card-mod.js`). layout-card names its license `LICENSE.txt` upstream; it is saved here as `LICENSE`, like the others.
 
 Then:
 

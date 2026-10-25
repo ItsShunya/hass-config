@@ -1,0 +1,16 @@
+title: Music
+icon: mdi:music
+path: music
+type: custom:grid-layout
+layout: !include ../layout.yaml
+cards:
+  - !include ../../../cards/menu.yaml
+  - !include ../../../cards/weather_compact.yaml
+  - type: vertical-stack
+    view_layout:
+      grid-area: main
+    cards:
+      - type: media-control
+        entity: media_player.shunya_s_echo_dot_living_room
+      - type: media-control
+        entity: media_player.shunya_s_echo_dot_bedroom

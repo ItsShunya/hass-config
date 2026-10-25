@@ -1,0 +1,24 @@
+# Small, semi-transparent weather card shown under the menu on every view.
+type: custom:weather-forecast-card
+entity: weather.forecast_home
+show_current: true
+show_forecast: true
+default_forecast: hourly
+tap_action:
+  action: more-info
+current:
+  show_attributes: false
+  # Whole degrees leave room for the condition text in the narrow column.
+  temperature_precision: 0
+forecast:
+  mode: simple
+  show_sun_times: false
+  hourly_group_size: 2
+view_layout:
+  grid-area: weather
+card_mod:
+  style: |
+    ha-card {
+      background: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 50%, transparent);
+      backdrop-filter: blur(8px);
+    }

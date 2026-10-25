@@ -1,26 +1,9 @@
 title: Home
 icon: mdi:home
 path: overview
-type: sections
-max_columns: 10
-dense_section_placement: true
-header:
-  layout: start
-  badges_position: bottom
-  badges_wrap: scroll
-show_icon_and_title: false
-sections:
-  - type: grid
-    cards:
-      - !include ../../../cards/weather_extended.yaml
-    column_span: 1
-
-  - type: grid
-    cards:
-      - !include ../../../cards/floorplan.yaml
-    column_span: 3
-
-  - type: grid
-    cards:
-      - type: heading
-        heading: Placeholder
+type: custom:grid-layout
+layout: !include ../layout.yaml
+cards:
+  - !include ../../../cards/menu.yaml
+  - !include ../../../cards/weather_compact.yaml
+  - !include ../../../cards/floorplan.yaml

@@ -13,6 +13,37 @@ elements:
     entity: sensor.shunya_s_echo_dot_living_room_temperature
     name: Living Room
 image: /local/images/floor_plan.png
-grid_options:
-  rows: 10
-  columns: 30
+view_layout:
+  grid-area: main
+# Fit the plan inside its grid area, with no card around it. #root keeps the
+# image's 3:2 shape (1536x1024), so the badges stay on their rooms. On phones
+# the plan just takes the full width.
+card_mod:
+  style: |
+    :host {
+      height: 100%;
+    }
+    ha-card {
+      height: 100%;
+      container-type: size;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      box-shadow: none;
+    }
+    #root {
+      width: min(100cqw, 150cqh);
+      border-radius: var(--ha-card-border-radius, 12px);
+      overflow: hidden;
+    }
+    @media (max-width: 800px) {
+      ha-card {
+        height: auto;
+        container-type: normal;
+      }
+      #root {
+        width: 100%;
+      }
+    }

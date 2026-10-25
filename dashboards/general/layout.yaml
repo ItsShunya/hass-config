@@ -1,0 +1,23 @@
+# Grid shared by every view (layout-card's custom:grid-layout): the menu and
+# the weather on the left, the view's own content on the right. Each card
+# picks its area with `view_layout: grid-area: ...`.
+grid-template-columns: 320px 1fr
+grid-template-rows: 1fr auto
+grid-template-areas: |
+  "menu    main"
+  "weather main"
+# Fill the screen below the top bar, so the weather sits at the bottom.
+height: calc(100vh - var(--header-height))
+# Spacing comes from the cards' own margins; padding would add to the height.
+padding: 0
+mediaquery:
+  # Phones: a single column, scrolled as a whole.
+  "(max-width: 800px)":
+    grid-template-columns: 100%
+    grid-template-rows: auto
+    # Keep the cards together at the top instead of spreading them out.
+    place-content: start stretch
+    grid-template-areas: |
+      "menu"
+      "main"
+      "weather"

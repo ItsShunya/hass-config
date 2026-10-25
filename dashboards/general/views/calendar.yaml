@@ -1,0 +1,18 @@
+title: Calendar
+icon: mdi:calendar
+path: calendar
+type: custom:grid-layout
+layout: !include ../layout.yaml
+cards:
+  - !include ../../../cards/menu.yaml
+  - !include ../../../cards/weather_compact.yaml
+  # Placeholder until a calendar integration is set up. Then replace it with
+  # a calendar card listing its calendar.* entities.
+  - type: markdown
+    view_layout:
+      grid-area: main
+    content: |
+      ## Calendar
+      No calendar is set up yet. Add a calendar integration (for example
+      Local Calendar, Google Calendar or CalDAV), then replace this card with
+      a calendar card in `dashboards/general/views/calendar.yaml`.

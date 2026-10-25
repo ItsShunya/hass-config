@@ -1,0 +1,50 @@
+# Navigation menu shown on the left of every view. One heading card per view,
+# merged into a single panel by stack-in-card. The style (anchor &item) makes
+# each whole row clickable and big enough for touch, with the arrow at the end.
+type: custom:stack-in-card
+mode: vertical
+view_layout:
+  grid-area: menu
+cards:
+  - type: heading
+    heading: Home
+    icon: mdi:home
+    tap_action:
+      action: navigate
+      navigation_path: /lovelace-general/overview
+    # The card's own rules load after these, so each selector starts with
+    # ha-card to outrank them.
+    card_mod: &item
+      style: |
+        ha-card .container {
+          padding: 10px 16px;
+        }
+        ha-card .container .content {
+          flex: 1;
+          gap: 16px;
+          --mdc-icon-size: 24px;
+        }
+        ha-card .content p {
+          flex: 1;
+        }
+  - type: heading
+    heading: Cleaning
+    icon: mdi:robot-vacuum
+    tap_action:
+      action: navigate
+      navigation_path: /lovelace-general/cleaning
+    card_mod: *item
+  - type: heading
+    heading: Calendar
+    icon: mdi:calendar
+    tap_action:
+      action: navigate
+      navigation_path: /lovelace-general/calendar
+    card_mod: *item
+  - type: heading
+    heading: Music
+    icon: mdi:music
+    tap_action:
+      action: navigate
+      navigation_path: /lovelace-general/music
+    card_mod: *item

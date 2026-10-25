@@ -57,7 +57,7 @@ Then:
    |---|---|---|
    | Xiaomi Miot | Robot vacuum | `vacuum.dreame_r2205_ad79_robot_cleaner`, `sensor.dreame_r2205_ad79_*` |
    | Xiaomi Cloud Map Extractor | Live vacuum map | `camera.dreamebot_d10_plus_live_map` |
-   | Alexa Media Player | Echo Dot temperature sensors | `sensor.shunya_s_echo_dot_bedroom_temperature`, `sensor.shunya_s_echo_dot_living_room_temperature` |
+   | Alexa Media Player | Echo Dot temperature sensors and media players | `sensor.shunya_s_echo_dot_bedroom_temperature`, `sensor.shunya_s_echo_dot_living_room_temperature`, `media_player.shunya_s_echo_dot_bedroom`, `media_player.shunya_s_echo_dot_living_room` |
    | Meteorologisk institutt (Met.no) | Weather forecast | `weather.forecast_home` |
 
    If an entity gets a different ID, rename it in Home Assistant to the one above, or update the cards that use it.
@@ -101,10 +101,20 @@ ssh -t shunya@nb250-10n docker exec -it homeassistant bash
 
 ## Dashboards
 
-There is a single dashboard, **General** (`dashboards/general/`), with two views:
+There is a single dashboard, **General** (`dashboards/general/`). Every view uses the same grid (`layout.yaml`, a [layout-card](https://github.com/thomasloven/lovelace-layout-card) `custom:grid-layout`) that fills the screen below the top bar:
 
-- **Home** (`views/overview.yaml`): A sections view with the weather forecast (`cards/weather_extended.yaml`) and the floor plan with the room temperatures (`cards/floorplan.yaml`).
-- **Vacuum** (`views/vacuum.yaml`): A full-screen panel with the interactive robot vacuum map (`cards/vacuum_map.yaml`). From it you can start, pause and send the vacuum home, and clean a selected zone or room.
+- On the left, a menu linking to each view (`cards/menu.yaml`), with a small semi-transparent weather card at the bottom (`cards/weather_compact.yaml`).
+- On the right, the view's own content. Cards choose their place with `view_layout: grid-area:` (`menu`, `weather` or `main`).
+- On phones (800px wide or less) these stack in a single column: menu, content, weather.
+
+The views:
+
+- **Home** (`views/overview.yaml`): The floor plan with the room temperatures (`cards/floorplan.yaml`), scaled to fit the screen.
+- **Cleaning** (`views/cleaning.yaml`): The interactive robot vacuum map (`cards/vacuum_map.yaml`). From it you can start, pause and send the vacuum home, and clean a selected zone or room.
+- **Calendar** (`views/calendar.yaml`): A placeholder until a calendar integration is set up.
+- **Music** (`views/music.yaml`): Media controls for the Echo Dots.
+
+To add a view, create it in `views/` with the same `type`, `layout` and first two cards as the others, include it from `dashboard.yaml`, and add a row for it to `cards/menu.yaml`.
 
 ---
 

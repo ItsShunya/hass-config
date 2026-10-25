@@ -55,6 +55,9 @@ lovelace:
     # renovate: repo=custom-cards/stack-in-card
     - url: /local/plugins/stack-in-card/stack-in-card.js?v=0.2.0
       type: module
+    # renovate: repo=thomasloven/lovelace-layout-card
+    - url: /local/plugins/layout-card/layout-card.js?v=2.4.7
+      type: module
   dashboards:
     lovelace-general:
       mode: yaml

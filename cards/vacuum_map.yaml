@@ -3,6 +3,8 @@ title: ''
 vacuum_platform: al-one/hass-xiaomi-miot
 # Anchor (&vacuum) reused below as *vacuum, so the entity is set only here.
 entity: &vacuum vacuum.dreame_r2205_ad79_robot_cleaner
+view_layout:
+  grid-area: main
 
 # Map's camera source comes from Xiaomi Cloud Map Extractor.
 map_source:
