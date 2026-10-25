@@ -56,7 +56,9 @@
       customType: "regex",
       managerFilePatterns: ["/^configuration\\.yaml$/"],
       matchStrings: [
-        "# renovate: repo=(?<packageName>\\S+)\\n\\s*- url: /local/plugins/(?<depName>[^/]+)/[^?\\s]+\\?v=(?<currentValue>\\S+)",
+        // "- url: ..." under lovelace.resources, or a bare "- ..." under
+        // frontend.extra_module_url.
+        "# renovate: repo=(?<packageName>\\S+)\\n\\s*- (?:url: )?/local/plugins/(?<depName>[^/]+)/[^?\\s]+\\?v=(?<currentValue>\\S+)",
       ],
       datasourceTemplate: "github-releases",
       versioningTemplate: "loose",

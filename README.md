@@ -23,12 +23,12 @@ The repository mirrors the layout of Home Assistant's `/config` directory, so it
 - **`themes/`**: Frontend themes, loaded by `frontend.themes`. Currently the [Catppuccin](https://github.com/catppuccin/home-assistant) flavours.
 - **`www/`**: Files served by Home Assistant under `/local/`.
   - `images/`: Pictures used by dashboards, like the floor plan.
-  - `plugins/`: Custom dashboard cards, loaded under `lovelace.resources` in `configuration.yaml`.
+  - `plugins/`: Custom dashboard cards, loaded under `lovelace.resources` in `configuration.yaml`, and kiosk-mode, loaded under `frontend.extra_module_url`.
 - **`custom_components/`**: Custom integrations not shipped with Home Assistant.
   - These and the cards in `www/plugins/` are vendored copies of third-party projects. [docs/vendored.md](./docs/vendored.md) lists their sources and versions, and how to update them.
 - **`docs/`**: Extra documentation.
 - **`.HA_VERSION`**: The Home Assistant version this configuration was last tested with. It must match the container image tag being run.
-  - When upgrading Home Assistant, bump the image tag there and update this file in the same step (e.g. `printf '2026.2.2' > .HA_VERSION`).
+  - When upgrading Home Assistant, bump the image tag there and update this file in the same step (e.g. `printf '2026.2.2' > .HA_VERSION`). Also update kiosk-mode to a release that supports the new version (see [docs/vendored.md](./docs/vendored.md)).
 
 ### Not in this repository
 
@@ -89,7 +89,7 @@ ssh shunya@nb250-10n docker exec homeassistant python -m homeassistant --script 
 Then apply it:
 
 - **`configuration.yaml` and custom integrations**: restart Home Assistant with `ssh -t shunya@nb250-10n sudo systemctl restart docker-homeassistant.service`, or from **Settings → System → Restart**.
-- **Dashboards and cards**: open the dashboard's ⋮ menu and choose **Refresh**, then reload the browser.
+- **Dashboards and cards**: open the dashboard with `?disable_km` at the end of the URL, so its header is shown, then open the ⋮ menu, choose **Refresh**, and reload the browser.
 
 In case you want to inspect something inside the container, you can open a shell in it with:
 
@@ -101,10 +101,10 @@ ssh -t shunya@nb250-10n docker exec -it homeassistant bash
 
 ## Dashboards
 
-There is a single dashboard, **General** (`dashboards/general/`). Every view uses the same grid (`layout.yaml`, a [layout-card](https://github.com/thomasloven/lovelace-layout-card) `custom:grid-layout`) that fills the screen below the top bar:
+There is a single dashboard, **General** (`dashboards/general/`). [kiosk-mode](https://github.com/NemesisRE/kiosk-mode) hides Home Assistant's own header and sidebar on it (`kiosk_mode:` in `dashboard.yaml`); add `?disable_km` to the URL to get them back. Every view uses the same grid (`layout.yaml`, a [layout-card](https://github.com/thomasloven/lovelace-layout-card) `custom:grid-layout`) that fills the screen:
 
-- On the left, a menu linking to each view (`cards/menu.yaml`), with a small semi-transparent weather card at the bottom (`cards/weather_compact.yaml`).
-- On the right, the view's own content. Cards choose their place with `view_layout: grid-area:` (`menu`, `weather` or `main`).
+- On the left, a large "Home" title and a menu linking to each view (`cards/menu.yaml`), with a small semi-transparent weather card at the bottom showing the current condition and temperature (`cards/weather_compact.yaml`).
+- On the right, touching the left column, the view's own content. Cards choose their place with `view_layout: grid-area:` (`menu`, `weather` or `main`).
 - On phones (800px wide or less) these stack in a single column: menu, content, weather.
 
 The views:

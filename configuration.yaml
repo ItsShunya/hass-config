@@ -36,6 +36,13 @@ webhooks:
 # Load frontend themes from the themes folder
 frontend:
   themes: !include_dir_merge_named themes
+  # kiosk-mode is loaded here rather than as a lovelace resource, so it runs
+  # before a dashboard draws and the header doesn't flash. Each kiosk-mode
+  # release only works with a range of Home Assistant versions: update both
+  # together (see docs/vendored.md).
+  extra_module_url:
+    # renovate: repo=NemesisRE/kiosk-mode
+    - /local/plugins/kiosk-mode/kiosk-mode.js?v=10.0.1
 
 lovelace:
   resource_mode: yaml

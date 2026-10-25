@@ -27,6 +27,7 @@ Notes:
 | Folder | Upstream | Version | License |
 |---|---|---|---|
 | `www/plugins/card-mod` | [thomasloven/lovelace-card-mod](https://github.com/thomasloven/lovelace-card-mod) | `v4.2.1` | MIT |
+| `www/plugins/kiosk-mode` | [NemesisRE/kiosk-mode](https://github.com/NemesisRE/kiosk-mode) | `v10.0.1` | MIT |
 | `www/plugins/layout-card` | [thomasloven/lovelace-layout-card](https://github.com/thomasloven/lovelace-layout-card) | `v2.4.7` | MIT |
 | `www/plugins/stack-in-card` | [custom-cards/stack-in-card](https://github.com/custom-cards/stack-in-card) | `0.2.0` | MIT |
 | `www/plugins/weather-forecast-card` | [troinine/ha-weather-forecast-card](https://github.com/troinine/ha-weather-forecast-card) | `v1.0.0` | MIT |
@@ -34,8 +35,9 @@ Notes:
 
 Notes:
 
+- **kiosk-mode** only works with a range of Home Assistant versions, listed at the top of [its README](https://github.com/NemesisRE/kiosk-mode#installation). `v10.0.1` is the last one for 2026.2.x. Don't update it on its own because Renovate lists a newer release: update it together with Home Assistant, to the version the table gives for the new Home Assistant version.
 - **stack-in-card** has had no release since November 2020. It still works, but if it breaks, a `vertical-stack` with `card_mod` styles that remove the inner borders gives the same result.
-- Each card is loaded in `configuration.yaml` under `lovelace.resources` with a `?v=<version>` suffix. Browsers cache these files, so the suffix must change with every update or clients keep running the old version.
+- Each card is loaded in `configuration.yaml` under `lovelace.resources` (kiosk-mode under `frontend.extra_module_url`) with a `?v=<version>` suffix. Browsers cache these files, so the suffix must change with every update or clients keep running the old version.
 
 ## Updating a component
 

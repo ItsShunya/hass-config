@@ -1,50 +1,66 @@
-# Navigation menu shown on the left of every view. One heading card per view,
-# merged into a single panel by stack-in-card. The style (anchor &item) makes
-# each whole row clickable and big enough for touch, with the arrow at the end.
-type: custom:stack-in-card
-mode: vertical
+# Top of the left column on every view: a large "Home" title, then the
+# navigation menu with one heading card per view, merged into a single panel
+# by stack-in-card.
+type: vertical-stack
 view_layout:
   grid-area: menu
 cards:
   - type: heading
     heading: Home
-    icon: mdi:home
-    tap_action:
-      action: navigate
-      navigation_path: /lovelace-general/overview
-    # The card's own rules load after these, so each selector starts with
-    # ha-card to outrank them.
-    card_mod: &item
+    card_mod:
       style: |
+        ha-card {
+          --ha-heading-card-title-font-size: var(--ha-font-size-5xl, 40px);
+          --ha-heading-card-title-font-weight: var(--ha-font-weight-bold, 700);
+          --ha-heading-card-title-line-height: 1.2;
+        }
+        /* Lines the text up with the menu icons below. */
         ha-card .container {
-          padding: 10px 16px;
+          padding: 8px 16px;
         }
-        ha-card .container .content {
-          flex: 1;
-          gap: 16px;
-          --mdc-icon-size: 24px;
-        }
-        ha-card .content p {
-          flex: 1;
-        }
-  - type: heading
-    heading: Cleaning
-    icon: mdi:robot-vacuum
-    tap_action:
-      action: navigate
-      navigation_path: /lovelace-general/cleaning
-    card_mod: *item
-  - type: heading
-    heading: Calendar
-    icon: mdi:calendar
-    tap_action:
-      action: navigate
-      navigation_path: /lovelace-general/calendar
-    card_mod: *item
-  - type: heading
-    heading: Music
-    icon: mdi:music
-    tap_action:
-      action: navigate
-      navigation_path: /lovelace-general/music
-    card_mod: *item
+  - type: custom:stack-in-card
+    mode: vertical
+    cards:
+      - type: heading
+        heading: Home
+        icon: mdi:home
+        tap_action:
+          action: navigate
+          navigation_path: /lovelace-general/overview
+        # Makes the whole row clickable and big enough for touch, with the
+        # arrow at the end. The card's own rules load after these, so each
+        # selector starts with ha-card to outrank them.
+        card_mod: &item
+          style: |
+            ha-card .container {
+              padding: 10px 16px;
+            }
+            ha-card .container .content {
+              flex: 1;
+              gap: 16px;
+              --mdc-icon-size: 24px;
+            }
+            ha-card .content p {
+              flex: 1;
+            }
+      - type: heading
+        heading: Cleaning
+        icon: mdi:robot-vacuum
+        tap_action:
+          action: navigate
+          navigation_path: /lovelace-general/cleaning
+        card_mod: *item
+      - type: heading
+        heading: Calendar
+        icon: mdi:calendar
+        tap_action:
+          action: navigate
+          navigation_path: /lovelace-general/calendar
+        card_mod: *item
+      - type: heading
+        heading: Music
+        icon: mdi:music
+        tap_action:
+          action: navigate
+          navigation_path: /lovelace-general/music
+        card_mod: *item

@@ -1,23 +1,38 @@
 # Grid shared by every view (layout-card's custom:grid-layout): the menu and
 # the weather on the left, the view's own content on the right. Each card
-# picks its area with `view_layout: grid-area: ...`.
-grid-template-columns: 320px 1fr
-grid-template-rows: 1fr auto
-grid-template-areas: |
-  "menu    main"
-  "weather main"
-# Fill the screen below the top bar, so the weather sits at the bottom.
-height: calc(100vh - var(--header-height))
+# picks its place with `view_layout: grid-area: menu|weather|main`, which
+# spans the grid lines named <area>-start to <area>-end below.
+#
+# Named lines are used instead of grid-template-areas because areas can't
+# overlap. layout-card gives every card a 4px margin on each side, which would
+# leave an 8px gap between the left column and main. Starting main 8px before
+# the left column ends cancels it, so the two touch.
+grid-template-columns: >-
+  [menu-start weather-start] 312px
+  [main-start] 8px
+  [menu-end weather-end] 1fr
+  [main-end]
+# The empty 1fr row pushes the weather to the bottom.
+grid-template-rows: >-
+  [menu-start main-start] auto
+  [menu-end] 1fr
+  [weather-start] auto
+  [weather-end main-end]
+# Fill the view, so the weather sits at the bottom of the screen. The view
+# already excludes the top bar when kiosk-mode shows it (?disable_km).
+height: 100%
 # Spacing comes from the cards' own margins; padding would add to the height.
 padding: 0
 mediaquery:
-  # Phones: a single column, scrolled as a whole.
+  # Phones: a single column, scrolled as a whole: menu, main, weather.
   "(max-width: 800px)":
-    grid-template-columns: 100%
-    grid-template-rows: auto
+    grid-template-columns: >-
+      [menu-start weather-start main-start] 100%
+      [menu-end weather-end main-end]
+    grid-template-rows: >-
+      [menu-start] auto
+      [menu-end main-start] auto
+      [main-end weather-start] auto
+      [weather-end]
     # Keep the cards together at the top instead of spreading them out.
     place-content: start stretch
-    grid-template-areas: |
-      "menu"
-      "main"
-      "weather"

@@ -1,4 +1,10 @@
 title: General
+# kiosk-mode: hide Home Assistant's own header (view tabs, ⋮ menu) and
+# sidebar. The menu in cards/menu.yaml replaces them. To get them back
+# temporarily, e.g. to use Refresh after deploying, add ?disable_km to the URL.
+kiosk_mode:
+  hide_header: true
+  hide_sidebar: true
 views:
   - !include views/overview.yaml
   - !include views/cleaning.yaml

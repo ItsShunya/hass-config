@@ -15,9 +15,9 @@ elements:
 image: /local/images/floor_plan.png
 view_layout:
   grid-area: main
-# Fit the plan inside its grid area, with no card around it. #root keeps the
-# image's 3:2 shape (1536x1024), so the badges stay on their rooms. On phones
-# the plan just takes the full width.
+# Fit the plan inside its grid area, with no card around it, against the menu
+# on its left. #root keeps the image's 3:2 shape (1536x1024), so the badges
+# stay on their rooms. On phones the plan just takes the full width.
 card_mod:
   style: |
     :host {
@@ -28,7 +28,7 @@ card_mod:
       container-type: size;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       background: none;
       border: none;
       box-shadow: none;
