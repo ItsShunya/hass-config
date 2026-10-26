@@ -4,8 +4,9 @@ path: calendar
 type: custom:grid-layout
 layout: !include ../layout.yaml
 cards:
-  - !include ../../../cards/menu.yaml
-  - !include ../../../cards/weather_compact.yaml
+  - !include ../../../cards/sidebar/background.yaml
+  - !include ../../../cards/sidebar/top.yaml
+  - !include ../../../cards/sidebar/bottom.yaml
   # Placeholder until a calendar integration is set up. Then replace it with
   # a calendar card listing its calendar.* entities.
   - type: markdown

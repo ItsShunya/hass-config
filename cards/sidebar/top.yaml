@@ -1,0 +1,94 @@
+# Top of the sidebar on every view: a large clock with the date, then the
+# navigation menu.
+type: vertical-stack
+view_layout:
+  grid-area: top
+cards:
+  # The template uses now(), so Home Assistant renders it again every minute.
+  - type: markdown
+    content: |
+      # {{ now().strftime('%H:%M') }}
+      {{ now().strftime('%A') }} {{ now().day }} {{ now().strftime('%B %Y') }}
+    card_mod:
+      style:
+        .: |
+          ha-card {
+            background: none;
+            border: none;
+            box-shadow: none;
+            padding: 24px 8px 8px;
+          }
+        ha-markdown$: |
+          h1 {
+            margin: 0;
+            font-size: 80px;
+            font-weight: 200;
+            line-height: 1;
+            letter-spacing: -2px;
+          }
+          p {
+            margin: 8px 0 0 4px;
+            font-size: 20px;
+            font-weight: 300;
+            opacity: 0.5;
+          }
+
+  # Menu: one heading card per view. The item for the view being shown gets
+  # a pill background and bold text: card-mod's `panel.viewUrlPath` is the
+  # path of the current view, compared with the item's own link.
+  - type: heading
+    heading: Home
+    icon: mdi:floor-plan
+    tap_action:
+      action: navigate
+      navigation_path: /lovelace-general/overview
+    # Text on the left, icon on the right, and the whole row clickable. The
+    # card's own rules load after these, so selectors start with ha-card to
+    # outrank them.
+    card_mod: &item
+      style: |
+        {% set active = config.tap_action.navigation_path.endswith('/' ~ panel.viewUrlPath) %}
+        ha-card {
+          --ha-heading-card-title-font-size: 22px;
+          --ha-heading-card-title-font-weight: {{ 600 if active else 300 }};
+        }
+        ha-card .container {
+          padding: 0 12px;
+        }
+        ha-card .container .content {
+          flex: 1;
+          flex-direction: row-reverse;
+          gap: 16px;
+          padding: 10px 20px 10px 24px;
+          border-radius: 999px;
+          letter-spacing: 1.5px;
+          --mdc-icon-size: 30px;
+          background: {{ 'color-mix(in srgb, var(--primary-text-color) 8%, transparent)' if active else 'none' }};
+        }
+        ha-card .content p {
+          flex: 1;
+        }
+        ha-card .content ha-icon-next {
+          display: none;
+        }
+  - type: heading
+    heading: Cleaning
+    icon: mdi:robot-vacuum
+    tap_action:
+      action: navigate
+      navigation_path: /lovelace-general/cleaning
+    card_mod: *item
+  - type: heading
+    heading: Calendar
+    icon: mdi:calendar-month-outline
+    tap_action:
+      action: navigate
+      navigation_path: /lovelace-general/calendar
+    card_mod: *item
+  - type: heading
+    heading: Music
+    icon: mdi:play-circle-outline
+    tap_action:
+      action: navigate
+      navigation_path: /lovelace-general/music
+    card_mod: *item

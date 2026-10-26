@@ -4,6 +4,7 @@ path: cleaning
 type: custom:grid-layout
 layout: !include ../layout.yaml
 cards:
-  - !include ../../../cards/menu.yaml
-  - !include ../../../cards/weather_compact.yaml
+  - !include ../../../cards/sidebar/background.yaml
+  - !include ../../../cards/sidebar/top.yaml
+  - !include ../../../cards/sidebar/bottom.yaml
   - !include ../../../cards/vacuum_map.yaml

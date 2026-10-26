@@ -1,0 +1,72 @@
+# Pollen level at home, shown in the dashboard's sidebar
+# (cards/sidebar/bottom.yaml).
+#
+# The counts come from Open-Meteo's air quality API: free, no API key, and
+# covering Europe only (the CAMS European model). Its pollen data is only
+# provided during the pollen season; outside it the counts are 0. The request
+# sends Home Assistant's home location, the same way Met.no's weather does.
+# https://open-meteo.com/en/docs/air-quality-api
+
+rest:
+  # The lines are joined with spaces; they only fall inside {{ }} or are
+  # trimmed by -%}, so the URL itself has none.
+  - resource_template: >-
+      {%- set types = 'alder_pollen,birch_pollen,olive_pollen,grass_pollen,mugwort_pollen,ragweed_pollen' -%}
+      https://air-quality-api.open-meteo.com/v1/air-quality?current={{ types
+      }}&latitude={{ state_attr('zone.home', 'latitude')
+      }}&longitude={{ state_attr('zone.home', 'longitude') }}
+    # The API updates hourly.
+    scan_interval: 3600
+    sensor:
+      # State: None, Low, Moderate, High or Very high, the worst level of any
+      # pollen type. The count of each type (grains/m³) is kept as an
+      # attribute.
+      #
+      # Levels follow the National Allergy Bureau scale (AAAAI), which uses
+      # different counts for trees (alder, birch, olive), grass and weeds
+      # (mugwort, ragweed). `scales` lists the lowest count of Low, Moderate,
+      # High and Very high for each; the level is how many of them are reached.
+      - name: Pollen
+        unique_id: pollen_level
+        icon: mdi:flower-pollen
+        json_attributes_path: "$.current"
+        json_attributes:
+          - alder_pollen
+          - birch_pollen
+          - olive_pollen
+          - grass_pollen
+          - mugwort_pollen
+          - ragweed_pollen
+        value_template: >-
+          {% set levels = ['None', 'Low', 'Moderate', 'High', 'Very high'] %}
+          {% set scales = {
+            'tree': [1, 15, 90, 1500],
+            'grass': [1, 5, 20, 200],
+            'weed': [1, 10, 50, 500],
+          } %}
+          {% set types = {
+            'alder_pollen': 'tree', 'birch_pollen': 'tree', 'olive_pollen': 'tree',
+            'grass_pollen': 'grass',
+            'mugwort_pollen': 'weed', 'ragweed_pollen': 'weed',
+          } %}
+          {% set ns = namespace(level=0) %}
+          {% for key, group in types.items() %}
+            {% set count = value_json.current[key] | float(0) %}
+            {% set ns.level = [ns.level, scales[group] | select('le', count) | list | count] | max %}
+          {% endfor %}
+          {{ levels[ns.level] }}
+
+automation:
+  - id: pollen_update_on_start
+    alias: Pollen - update on start
+    description: Fetch the pollen level again once Home Assistant has started.
+    # The first request runs while Home Assistant is still starting, often
+    # before zone.home exists; without a location the API refuses it, and the
+    # sensor would stay unknown until the next hourly update.
+    triggers:
+      - trigger: homeassistant
+        event: start
+    actions:
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.pollen

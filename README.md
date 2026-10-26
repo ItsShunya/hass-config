@@ -62,6 +62,8 @@ Then:
 
    If an entity gets a different ID, rename it in Home Assistant to the one above, or update the cards that use it.
 
+   Two more entities need no integration: `person.shunya`, the person Home Assistant creates for the owner's user account (others are added under **Settings → People**), and `sensor.pollen`, from `packages/pollen.yaml`.
+
 ---
 
 ## Deploying changes
@@ -103,9 +105,12 @@ ssh -t shunya@nb250-10n docker exec -it homeassistant bash
 
 There is a single dashboard, **General** (`dashboards/general/`). [kiosk-mode](https://github.com/NemesisRE/kiosk-mode) hides Home Assistant's own header and sidebar on it (`kiosk_mode:` in `dashboard.yaml`); add `?disable_km` to the URL to get them back. Every view uses the same grid (`layout.yaml`, a [layout-card](https://github.com/thomasloven/lovelace-layout-card) `custom:grid-layout`) that fills the screen:
 
-- On the left, a large "Home" title and a menu linking to each view (`cards/menu.yaml`), with a small semi-transparent weather card at the bottom showing the current condition and temperature (`cards/weather_compact.yaml`).
-- On the right, touching the left column, the view's own content. Cards choose their place with `view_layout: grid-area:` (`menu`, `weather` or `main`).
-- On phones (800px wide or less) these stack in a single column: menu, content, weather.
+- On the left, a sidebar (`cards/sidebar/`, adapted from [lukevink/hass-config-lajv](https://github.com/lukevink/hass-config-lajv)):
+  - At the top (`top.yaml`), a large clock with the date, and a menu linking to each view. The item of the view being shown is highlighted.
+  - At the bottom (`bottom.yaml`), the people's profile pictures (faded when they're away), the pollen level (`packages/pollen.yaml`), the weather outside and the temperature inside.
+  - Behind them, a panel reaching the screen's edges (`background.yaml`).
+- On the right, touching the sidebar, the view's own content. Cards choose their place with `view_layout: grid-area:` (`sidebar`, `top`, `bottom` or `main`).
+- On phones (800px wide or less) these stack in a single column, without the panel: top of the sidebar, content, bottom of the sidebar.
 
 The views:
 
@@ -114,7 +119,7 @@ The views:
 - **Calendar** (`views/calendar.yaml`): A placeholder until a calendar integration is set up.
 - **Music** (`views/music.yaml`): Media controls for the Echo Dots.
 
-To add a view, create it in `views/` with the same `type`, `layout` and first two cards as the others, include it from `dashboard.yaml`, and add a row for it to `cards/menu.yaml`.
+To add a view, create it in `views/` with the same `type`, `layout` and first three cards as the others, include it from `dashboard.yaml`, and add an item for it to the menu in `cards/sidebar/top.yaml`.
 
 ---
 

@@ -1,0 +1,134 @@
+# Bottom of the sidebar on every view: who is home, then pollen, the weather
+# outside and the temperature inside.
+type: vertical-stack
+view_layout:
+  grid-area: bottom
+cards:
+  # People: their profile pictures in circles, faded when they're away.
+  - type: glance
+    show_name: false
+    show_state: false
+    entities:
+      - person.shunya
+    # The card's own rules load after these, so selectors are made more
+    # specific than its own. Each entity draws its picture inside its own
+    # shadow root, reached with "$".
+    card_mod:
+      style:
+        .: |
+          ha-card {
+            background: none;
+            border: none;
+            box-shadow: none;
+          }
+          .entities.no-header {
+            justify-content: flex-start;
+            gap: 16px;
+            padding: 0 20px;
+          }
+          .entities .entity {
+            width: auto;
+            margin: 0;
+            padding: 0;
+          }
+          {% for e in config.entities %}
+          {% if not is_state(e.entity if e is mapping else e, 'home') %}
+          .entities .entity:nth-child({{ loop.index }}) {
+            filter: grayscale(1);
+            opacity: 0.4;
+          }
+          {% endif %}
+          {% endfor %}
+        .entity$: |
+          state-badge {
+            width: 64px;
+            height: 64px;
+            margin: 0;
+            --mdc-icon-size: 36px;
+            border: 2px solid var(--primary-text-color);
+            border-radius: 50%;
+          }
+
+  # Pollen (packages/pollen.yaml), the weather outside and the temperature
+  # inside: values on the left, an icon on the right. The pollen icon sits in
+  # a ring that fills up and changes color with the level.
+  - type: markdown
+    content: |
+      {%- set weather = 'weather.forecast_home' -%}
+      {%- set inside = 'sensor.shunya_s_echo_dot_living_room_temperature' -%}
+      {%- set icons = {
+        'clear-night': 'night', 'cloudy': 'cloudy', 'fog': 'fog', 'hail': 'hail',
+        'lightning': 'lightning', 'lightning-rainy': 'lightning-rainy',
+        'partlycloudy': 'partly-cloudy', 'pouring': 'pouring', 'rainy': 'rainy',
+        'snowy': 'snowy', 'snowy-rainy': 'snowy-rainy', 'sunny': 'sunny',
+        'windy': 'windy', 'windy-variant': 'windy-variant' } -%}
+      {%- set weather_icon = 'mdi:weather-' ~ icons.get(states(weather), 'cloudy') -%}
+      <table>
+      <tr>
+      <td>Pollen<br><span>{{ state_translated('sensor.pollen') }}</span></td>
+      <td><ha-icon icon="mdi:flower-pollen-outline"></ha-icon></td>
+      </tr>
+      <tr>
+      <td>{{ state_attr(weather, 'temperature') }} {{ state_attr(weather, 'temperature_unit') }}<br>
+      <span>{{ state_translated(weather) }}</span></td>
+      <td><ha-icon icon="{{ weather_icon }}"></ha-icon></td>
+      </tr>
+      <tr>
+      <td>{{ states(inside) }} {{ state_attr(inside, 'unit_of_measurement') }}</td>
+      <td><ha-icon icon="mdi:home-thermometer-outline"></ha-icon></td>
+      </tr>
+      </table>
+    card_mod:
+      style:
+        .: |
+          ha-card {
+            background: none;
+            border: none;
+            box-shadow: none;
+            padding: 0 16px 8px;
+          }
+        ha-markdown$: |
+          {% set level = states('sensor.pollen') %}
+          {% set fill = {'None': 0, 'Low': 25, 'Moderate': 50, 'High': 75, 'Very high': 100}.get(level, 0) %}
+          {% set colors = {'Low': 'var(--success-color)', 'Moderate': 'var(--warning-color)'} %}
+          {% set color = colors.get(level, 'var(--error-color)') %}
+          table {
+            width: 100%;
+            border-spacing: 0 10px;
+            --markdown-table-border-collapse: separate;
+            --markdown-table-border-width: 0;
+            --markdown-table-padding-inline: 0;
+            --markdown-table-padding-block: 0;
+          }
+          td {
+            vertical-align: middle;
+            font-size: 18px;
+            font-weight: 300;
+            line-height: 1.3;
+          }
+          td span {
+            font-size: 15px;
+            opacity: 0.6;
+          }
+          td:last-child {
+            width: 44px;
+            text-align: center;
+          }
+          ha-icon {
+            --mdc-icon-size: 28px;
+            opacity: 0.8;
+          }
+          tr:first-child ha-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            --mdc-icon-size: 20px;
+            opacity: 1;
+            background:
+              radial-gradient(closest-side,
+                var(--card-background-color) calc(100% - 3px), transparent calc(100% - 2px)),
+              conic-gradient({{ color }} {{ fill }}%, color-mix(in srgb, var(--primary-text-color) 15%, transparent) 0);
+          }

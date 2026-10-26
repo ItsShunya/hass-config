@@ -1,0 +1,29 @@
+# Background panel of the sidebar: an empty card spanning the whole left
+# column, reaching the screen's top, left and bottom edges. It must come
+# before the other sidebar cards in each view, so it's drawn behind them.
+# Hidden on phones, where the sidebar's cards stack around the content.
+type: markdown
+content: " "
+view_layout:
+  grid-area: sidebar
+card_mod:
+  style: |
+    :host {
+      display: block;
+      height: 100%;
+    }
+    /* ":host >" outranks the markdown card's own height rule. */
+    :host > ha-card {
+      /* Cover the card's own margins (4px, 8px at the bottom), except the
+         right one: main starts there. */
+      margin: -4px 0 -8px -4px;
+      height: calc(100% + 12px);
+      border: none;
+      border-radius: 0;
+      box-shadow: 2px 0 16px rgba(0, 0, 0, 0.25);
+    }
+    @media (max-width: 800px) {
+      ha-card {
+        display: none;
+      }
+    }
