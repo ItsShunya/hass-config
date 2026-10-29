@@ -4,8 +4,9 @@
 # it's the only element that can group others. Its style sets the point it's
 # centred on (left and top, as a share of the plan) and --room, the name on
 # top, in double quotes. Inside, each reading is an icon followed by a
-# state-label of the same entity. The tags only show readings: they don't
-# react to taps. Their look is set once, in card_mod at the end.
+# state-label of the same entity. The room tags only show readings: they
+# don't react to taps. The alarm's tag is the exception. Their look is set
+# once, in card_mod at the end.
 type: picture-elements
 elements:
   - type: conditional
@@ -67,6 +68,39 @@ elements:
         entity: sensor.shunya_s_echo_dot_living_room_temperature
       - type: state-label
         entity: sensor.shunya_s_echo_dot_living_room_temperature
+
+  # The alarm, in the empty corner outside the house. Unlike the rooms it
+  # reacts to taps: its icon and state open the alarm's dialog, to arm or
+  # disarm it. The icon is colored like Home Assistant colors the alarm.
+  - type: conditional
+    conditions: []
+    style:
+      left: 80%
+      top: 20%
+      --room: '"Alarm"'
+      pointer-events: auto
+      cursor: pointer
+    elements:
+      - type: icon
+        icon: mdi:alarm-light
+        entity: alarm_control_panel.verisure
+        tap_action:
+          action: more-info
+        card_mod:
+          style: |
+            {% set state = states(config.entity) %}
+            {% set color = 'error' if state == 'triggered'
+              else 'warning' if state in ['arming', 'pending', 'disarming']
+              else 'success' if state.startswith('armed_') %}
+            {% if color %}
+            ha-icon {
+              color: var(--{{ color }}-color);
+            }
+            {% endif %}
+      - type: state-label
+        entity: alarm_control_panel.verisure
+        tap_action:
+          action: more-info
 image: /local/images/floor_plan.png
 view_layout:
   grid-area: main

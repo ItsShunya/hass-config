@@ -60,10 +60,10 @@ Then:
    | Xiaomi Miot | Robot vacuum | `vacuum.dreame_r2205_ad79_robot_cleaner`, `sensor.dreame_r2205_ad79_*` |
    | Xiaomi Cloud Map Extractor | Live vacuum map | `camera.dreamebot_d10_plus_live_map` |
    | Alexa Media Player | Echo Dot temperature sensors and media players | `sensor.shunya_s_echo_dot_bedroom_temperature`, `sensor.shunya_s_echo_dot_living_room_temperature`, `media_player.shunya_s_echo_dot_bedroom`, `media_player.shunya_s_echo_dot_living_room` |
-   | Verisure OWA | The alarm's temperature, humidity and air quality sensors | `sensor.verisure_temperature`, `sensor.verisure_humidity`, `sensor.verisure_air_quality_status` |
+   | Verisure OWA | The alarm, and its temperature, humidity and air quality sensors | `alarm_control_panel.verisure`, `sensor.verisure_temperature`, `sensor.verisure_humidity`, `sensor.verisure_air_quality_status` |
    | Meteorologisk institutt (Met.no) | Weather forecast | `weather.forecast_home` |
 
-   If an entity gets a different ID, rename it in Home Assistant to the one above, or update the cards that use it. Verisure OWA names its sensors after the installation's alias: renaming the installation's device to `Verisure`, and accepting to rename its entity IDs too, gives the IDs above.
+   If an entity gets a different ID, rename it in Home Assistant to the one above, or update the cards that use it. Verisure OWA names the alarm and its sensors after the installation's alias: renaming the installation's device to `Verisure`, and accepting to rename its entity IDs too, gives the IDs above.
 
    Two more things come from this repository rather than an integration: `sensor.pollen`, from `packages/pollen.yaml`, and the presence sensors `binary_sensor.victor_presence` and `binary_sensor.jhuseidi_presence`, from `packages/presence.yaml`. Those need the people, `person.victor` and `person.jhuseidi`, and the Home Assistant app on their phones: see [docs/presence.md](./docs/presence.md).
 
