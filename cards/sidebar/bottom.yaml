@@ -15,7 +15,8 @@ card_mod:
 cards:
   # People: their profile pictures in circles, faded when they're away. Their
   # presence sensors (packages/presence.yaml) carry the person's picture and
-  # count the home Wi-Fi as well as the phone's location.
+  # count the home Wi-Fi as well as the phone's location. The pictures don't
+  # react to taps.
   - type: glance
     show_name: false
     show_state: false
@@ -42,6 +43,7 @@ cards:
             width: auto;
             margin: 0;
             padding: 0;
+            pointer-events: none;
           }
           {% for e in config.entities %}
           {% if not is_state(e.entity if e is mapping else e, 'on') %}

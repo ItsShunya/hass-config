@@ -4,8 +4,8 @@
 # it's the only element that can group others. Its style sets the point it's
 # centred on (left and top, as a share of the plan) and --room, the name on
 # top, in double quotes. Inside, each reading is an icon followed by a
-# state-label of the same entity; tapping either opens the entity's history.
-# The tags' look is set once, in card_mod at the end.
+# state-label of the same entity. The tags only show readings: they don't
+# react to taps. Their look is set once, in card_mod at the end.
 type: picture-elements
 elements:
   - type: conditional
@@ -108,6 +108,7 @@ card_mod:
       font-size: max(10px, 1.4cqw);
       line-height: 1.2;
       white-space: nowrap;
+      pointer-events: none;
       --mdc-icon-size: 1.1em;
     }
     #root > hui-conditional-element::before {
