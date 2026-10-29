@@ -1,23 +1,82 @@
+# Floor plan with a tag on each room: the room's name over its readings.
+#
+# A tag is a conditional element with no conditions, so it's always shown:
+# it's the only element that can group others. Its style sets the point it's
+# centred on (left and top, as a share of the plan) and --room, the name on
+# top, in double quotes. Inside, each reading is an icon followed by a
+# state-label of the same entity; tapping either opens the entity's history.
+# The tags' look is set once, in card_mod at the end.
 type: picture-elements
 elements:
-  - type: state-badge
+  - type: conditional
+    conditions: []
     style:
       left: 38%
       top: 55%
-    entity: sensor.shunya_s_echo_dot_bedroom_temperature
-    name: Bedroom
-  - type: state-badge
+      --room: '"Bedroom"'
+    elements:
+      - type: icon
+        icon: mdi:thermometer
+        entity: sensor.shunya_s_echo_dot_bedroom_temperature
+      - type: state-label
+        entity: sensor.shunya_s_echo_dot_bedroom_temperature
+
+  # The sensors of the Verisure alarm.
+  - type: conditional
+    conditions: []
     style:
       left: 58%
-      top: 72%
-    entity: sensor.shunya_s_echo_dot_living_room_temperature
-    name: Living Room
+      top: 70%
+      --room: '"Living room"'
+    elements:
+      - type: icon
+        icon: mdi:thermometer
+        entity: sensor.verisure_temperature
+      - type: state-label
+        entity: sensor.verisure_temperature
+      - type: icon
+        icon: mdi:water-percent
+        entity: sensor.verisure_humidity
+      - type: state-label
+        entity: sensor.verisure_humidity
+      # Colored by the level: Good, Fair or Poor.
+      - type: icon
+        icon: mdi:air-filter
+        entity: sensor.verisure_air_quality_status
+        card_mod:
+          style: |
+            {% set color = {'Good': 'success', 'Fair': 'warning', 'Poor': 'error'}.get(states(config.entity)) %}
+            {% if color %}
+            ha-icon {
+              color: var(--{{ color }}-color);
+            }
+            {% endif %}
+      - type: state-label
+        entity: sensor.verisure_air_quality_status
+
+  # The kitchen's reading comes from the Echo Dot named "living room".
+  - type: conditional
+    conditions: []
+    style:
+      left: 77%
+      top: 84%
+      --room: '"Kitchen"'
+    elements:
+      - type: icon
+        icon: mdi:thermometer
+        entity: sensor.shunya_s_echo_dot_living_room_temperature
+      - type: state-label
+        entity: sensor.shunya_s_echo_dot_living_room_temperature
 image: /local/images/floor_plan.png
 view_layout:
   grid-area: main
 # Fit the plan inside its grid area, with no card around it, against the menu
-# on its left. #root keeps the image's 3:2 shape (1536x1024), so the badges
+# on its left. #root keeps the image's 3:2 shape (1536x1024), so the tags
 # stay on their rooms. On phones the plan just takes the full width.
+#
+# The tags are sized in cqw, hundredths of the plan's width, so they shrink
+# and grow with it and keep fitting their rooms. Below 10px they stop
+# shrinking, to stay readable on phones, where they outgrow their rooms.
 card_mod:
   style: |
     :host {
@@ -37,6 +96,47 @@ card_mod:
       width: min(100cqw, 150cqh);
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
+      container-type: inline-size;
+    }
+    #root > hui-conditional-element {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      padding: 0.35em 0.6em 0.4em;
+      border: 1px solid color-mix(in srgb, var(--primary-text-color) 15%, transparent);
+      border-radius: 0.6em;
+      background: color-mix(in srgb, var(--card-background-color) 80%, transparent);
+      font-size: max(10px, 1.4cqw);
+      line-height: 1.2;
+      white-space: nowrap;
+      --mdc-icon-size: 1.1em;
+    }
+    #root > hui-conditional-element::before {
+      content: var(--room);
+      display: block;
+      font-size: 0.7em;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--secondary-text-color);
+    }
+    /* The card positions every element on its own; inside a tag they line
+       up after the name, centred on each other. */
+    #root > hui-conditional-element > .element {
+      position: static;
+      transform: none;
+      display: inline-flex;
+      vertical-align: middle;
+    }
+    #root > hui-conditional-element > hui-icon-element {
+      margin-right: 0.2em;
+      color: var(--secondary-text-color);
+    }
+    /* state-label pads its text by 8px inside its own shadow root, out of
+       reach of these styles: a matching negative margin cancels it. */
+    #root > hui-conditional-element > hui-state-label-element {
+      margin: -8px;
+    }
+    #root > hui-conditional-element > hui-state-label-element:not(:last-child) {
+      margin-right: calc(0.6em - 8px);
     }
     @media (max-width: 800px) {
       ha-card {

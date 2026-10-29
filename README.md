@@ -59,9 +59,10 @@ Then:
    | Xiaomi Miot | Robot vacuum | `vacuum.dreame_r2205_ad79_robot_cleaner`, `sensor.dreame_r2205_ad79_*` |
    | Xiaomi Cloud Map Extractor | Live vacuum map | `camera.dreamebot_d10_plus_live_map` |
    | Alexa Media Player | Echo Dot temperature sensors and media players | `sensor.shunya_s_echo_dot_bedroom_temperature`, `sensor.shunya_s_echo_dot_living_room_temperature`, `media_player.shunya_s_echo_dot_bedroom`, `media_player.shunya_s_echo_dot_living_room` |
+   | Verisure OWA | The alarm's temperature, humidity and air quality sensors | `sensor.verisure_temperature`, `sensor.verisure_humidity`, `sensor.verisure_air_quality_status` |
    | Meteorologisk institutt (Met.no) | Weather forecast | `weather.forecast_home` |
 
-   If an entity gets a different ID, rename it in Home Assistant to the one above, or update the cards that use it.
+   If an entity gets a different ID, rename it in Home Assistant to the one above, or update the cards that use it. Verisure OWA names its sensors after the installation's alias: renaming the installation's device to `Verisure`, and accepting to rename its entity IDs too, gives the IDs above.
 
    Two more entities need no integration: `person.shunya`, the person Home Assistant creates for the owner's user account (others are added under **Settings → People**), and `sensor.pollen`, from `packages/pollen.yaml`.
 
@@ -124,7 +125,7 @@ Phones keep the drawn sizes, since there the dashboard scrolls anyway. [docs/das
 
 The views:
 
-- **Home** (`views/overview.yaml`): The floor plan with the room temperatures (`cards/floorplan.yaml`), scaled to fit the screen.
+- **Home** (`views/overview.yaml`): The floor plan (`cards/floorplan.yaml`), scaled to fit the screen. A small tag on each room shows its readings: the temperature, plus humidity and air quality in the living room.
 - **Cleaning** (`views/cleaning.yaml`): The interactive robot vacuum map (`cards/vacuum_map.yaml`). From it you can start, pause and send the vacuum home, and clean a selected zone or room.
 - **Calendar** (`views/calendar.yaml`): A placeholder until a calendar integration is set up.
 - **Music** (`views/music.yaml`): Media controls for the Echo Dots.
