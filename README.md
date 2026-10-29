@@ -28,6 +28,7 @@ The repository mirrors the layout of Home Assistant's `/config` directory, so it
 - **`custom_components/`**: Custom integrations not shipped with Home Assistant.
   - These and the cards in `www/plugins/` are vendored copies of third-party projects. [docs/vendored.md](./docs/vendored.md) lists their sources and versions, and how to update them.
 - **`docs/`**: Extra documentation.
+- **`secrets.example.yaml`**: The secrets the configuration uses (`!secret`), with placeholder values. The real ones go in `secrets.yaml` on the server.
 - **`.HA_VERSION`**: The Home Assistant version this configuration was last tested with. It must match the container image tag being run.
   - When upgrading Home Assistant, bump the image tag there and update this file in the same step (e.g. `printf '2026.2.2' > .HA_VERSION`). Also update kiosk-mode to a release that supports the new version (see [docs/vendored.md](./docs/vendored.md)).
 
@@ -36,7 +37,7 @@ The repository mirrors the layout of Home Assistant's `/config` directory, so it
 Part of a working installation lives only on the server, and is ignored by git:
 
 - **`.storage/`**: Everything configured through the UI: integrations and their credentials, devices, entity names, areas, users and helpers.
-- **`secrets.yaml`**: Values referenced with `!secret`. Nothing uses it yet.
+- **`secrets.yaml`**: Values referenced with `!secret`, such as the names of the home Wi-Fi networks. `secrets.example.yaml` lists them.
 - **`home-assistant_v2.db`**: The recorder database with the state history.
 - **`backups/`**: Backups made by Home Assistant's backup integration.
 
@@ -64,7 +65,7 @@ Then:
 
    If an entity gets a different ID, rename it in Home Assistant to the one above, or update the cards that use it. Verisure OWA names its sensors after the installation's alias: renaming the installation's device to `Verisure`, and accepting to rename its entity IDs too, gives the IDs above.
 
-   Two more entities need no integration: `person.shunya`, the person Home Assistant creates for the owner's user account (others are added under **Settings → People**), and `sensor.pollen`, from `packages/pollen.yaml`.
+   Two more things come from this repository rather than an integration: `sensor.pollen`, from `packages/pollen.yaml`, and the presence sensors `binary_sensor.victor_presence` and `binary_sensor.jhuseidi_presence`, from `packages/presence.yaml`. Those need the people, `person.victor` and `person.jhuseidi`, and the Home Assistant app on their phones: see [docs/presence.md](./docs/presence.md).
 
 ---
 
@@ -109,7 +110,7 @@ There is a single dashboard, **General** (`dashboards/general/`). [kiosk-mode](h
 
 - On the left, a sidebar (`cards/sidebar/`, adapted from [lukevink/hass-config-lajv](https://github.com/lukevink/hass-config-lajv)):
   - At the top (`top.yaml`), a large clock with the date, and a menu linking to each view. The item of the view being shown is highlighted.
-  - At the bottom (`bottom.yaml`), the people's profile pictures (faded when they're away), the pollen level (`packages/pollen.yaml`), the weather outside and the temperature inside.
+  - At the bottom (`bottom.yaml`), the people's profile pictures (faded when they're away, see [docs/presence.md](./docs/presence.md)), the pollen level (`packages/pollen.yaml`), the weather outside and the temperature inside.
   - Behind them, a panel reaching the screen's edges (`background.yaml`).
 - On the right, touching the sidebar, the view's own content. Cards choose their place with `view_layout: grid-area:` (`sidebar`, `top`, `bottom` or `main`).
 - On phones (800px wide or less) these stack in a single column, without the panel: top of the sidebar, content, bottom of the sidebar.
@@ -140,7 +141,7 @@ The [Check configuration](./.github/workflows/check.yaml) workflow runs on every
 
 - **yamllint** checks the syntax and style of our own YAML files, using the rules in `.yamllint`. Vendored files are skipped.
 - **Referenced files** ([`check_references.py`](./.github/scripts/check_references.py)) follows `configuration.yaml` through every `!include`, dashboard `filename` and `/local/` URL, and fails if a target is missing or isn't valid YAML. Home Assistant's own check doesn't read YAML dashboards, so this is what catches a broken dashboard.
-- **check_config** runs Home Assistant's configuration check in the official container, at the version in `.HA_VERSION`.
+- **check_config** runs Home Assistant's configuration check in the official container, at the version in `.HA_VERSION`, with `secrets.example.yaml` standing in for `secrets.yaml`.
 
 To run the first two locally before pushing (both need Python; `pip install yamllint pyyaml`):
 

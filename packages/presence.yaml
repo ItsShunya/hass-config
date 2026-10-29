@@ -1,0 +1,40 @@
+# Who is home, shown in the dashboard's sidebar (cards/sidebar/bottom.yaml).
+#
+# Each person has a presence sensor, on (Home) while either:
+# - their person entity is home: their phone's app reports a location inside
+#   the home zone, or
+# - their phone is connected to the home Wi-Fi, as the app also reports.
+#
+# The Wi-Fi catches an arrival as soon as the phone joins the network, and
+# keeps someone home when their phone's location drifts out of the home zone
+# indoors. The Android app reports a change of network straight away. The
+# iPhone app only reports it when iOS lets it run (when the phone moves, when
+# the app is opened, or in the background now and then), so after leaving it
+# can take a few minutes to see the phone is off the home Wi-Fi.
+#
+# The names of the home Wi-Fi networks are kept in secrets.yaml, under
+# `home_wifi`, as a list (see secrets.example.yaml): this repository is
+# public, and a network's name can be looked up on a map. docs/presence.md
+# explains how to set up the people and their phones.
+
+template:
+  - variables:
+      home_wifi: !secret home_wifi
+    binary_sensor:
+      # Android phone (Home Assistant Companion app).
+      - name: Victor presence
+        unique_id: victor_presence
+        device_class: presence
+        picture: "{{ state_attr('person.victor', 'entity_picture') }}"
+        state: >-
+          {{ is_state('person.victor', 'home')
+             or states('sensor.shunya_vivox300_wi_fi_connection') in home_wifi }}
+
+      # iPhone (Home Assistant app).
+      - name: Jhuseidi presence
+        unique_id: jhuseidi_presence
+        device_class: presence
+        picture: "{{ state_attr('person.jhuseidi', 'entity_picture') }}"
+        state: >-
+          {{ is_state('person.jhuseidi', 'home')
+             or states('sensor.jhuseidi_ssid') in home_wifi }}

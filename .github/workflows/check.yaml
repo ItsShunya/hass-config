@@ -38,11 +38,11 @@ jobs:
         id: version
         run: echo "version=$(cat .HA_VERSION)" >> "$GITHUB_OUTPUT"
 
-      # secrets.yaml is not in git; an empty one lets !secret lookups fail
-      # with a clear message instead of a missing-file error.
+      # secrets.yaml is not in git: the example's placeholders stand in for
+      # it. A secret missing from the example fails with a clear message.
       - name: Run check_config
         run: |
-          touch secrets.yaml
+          cp secrets.example.yaml secrets.yaml
           docker run --rm -v "$PWD:/config" \
             "ghcr.io/home-assistant/home-assistant:${{ steps.version.outputs.version }}" \
             python -m homeassistant --script check_config -c /config
