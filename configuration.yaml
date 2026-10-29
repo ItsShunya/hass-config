@@ -65,6 +65,9 @@ lovelace:
     # renovate: repo=thomasloven/lovelace-layout-card
     - url: /local/plugins/layout-card/layout-card.js?v=2.4.7
       type: module
+    # Our own: the General dashboard's sizes. Bump ?v= after editing it.
+    - url: /local/styles/dashboard.css?v=1
+      type: css
   dashboards:
     lovelace-general:
       mode: yaml

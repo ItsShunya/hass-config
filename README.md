@@ -24,6 +24,7 @@ The repository mirrors the layout of Home Assistant's `/config` directory, so it
 - **`www/`**: Files served by Home Assistant under `/local/`.
   - `images/`: Pictures used by dashboards, like the floor plan.
   - `plugins/`: Custom dashboard cards, loaded under `lovelace.resources` in `configuration.yaml`, and kiosk-mode, loaded under `frontend.extra_module_url`.
+  - `styles/`: Our own stylesheets, also loaded under `lovelace.resources`. `dashboard.css` holds the sizes of the dashboard (see [Dashboards](#dashboards)).
 - **`custom_components/`**: Custom integrations not shipped with Home Assistant.
   - These and the cards in `www/plugins/` are vendored copies of third-party projects. [docs/vendored.md](./docs/vendored.md) lists their sources and versions, and how to update them.
 - **`docs/`**: Extra documentation.
@@ -91,7 +92,7 @@ ssh shunya@nb250-10n docker exec homeassistant python -m homeassistant --script 
 Then apply it:
 
 - **`configuration.yaml` and custom integrations**: restart Home Assistant with `ssh -t shunya@nb250-10n sudo systemctl restart docker-homeassistant.service`, or from **Settings → System → Restart**.
-- **Dashboards and cards**: open the dashboard with `?disable_km` at the end of the URL, so its header is shown, then open the ⋮ menu, choose **Refresh**, and reload the browser.
+- **Dashboards and cards**: open the dashboard with `?disable_km` at the end of the URL, so its header is shown, then open the ⋮ menu, choose **Refresh**, and reload the browser. After editing `www/styles/dashboard.css`, also bump its `?v=` in `configuration.yaml` and restart Home Assistant, or browsers keep the old copy.
 
 In case you want to inspect something inside the container, you can open a shell in it with:
 
@@ -111,6 +112,15 @@ There is a single dashboard, **General** (`dashboards/general/`). [kiosk-mode](h
   - Behind them, a panel reaching the screen's edges (`background.yaml`).
 - On the right, touching the sidebar, the view's own content. Cards choose their place with `view_layout: grid-area:` (`sidebar`, `top`, `bottom` or `main`).
 - On phones (800px wide or less) these stack in a single column, without the panel: top of the sidebar, content, bottom of the sidebar.
+
+The dashboard is drawn for a 1280x840 screen (in CSS pixels, not the screen's resolution) and scales to fit any other one, so the sidebar never needs a scrollbar. The cards write their sizes as `calc(N * var(--dash-px))`, N pixels on that screen. `www/styles/dashboard.css` computes `--dash-px` from the screen size and holds the settings for a different screen:
+
+- `--dash-scale`: everything larger or smaller, on top of the fit (`1.1` is 10% larger).
+- `--dash-spacing`: the space between and inside the sidebar's items (`0.8` tightens it by a fifth).
+- `--dash-sidebar-width`: the sidebar's width, in drawn pixels.
+- `--dash-screen-width` and `--dash-screen-height`: the screen the sizes are drawn for. Raise the height if a scrollbar still appears.
+
+Phones keep the drawn sizes, since there the dashboard scrolls anyway. [docs/dashboard-sizes.md](./docs/dashboard-sizes.md) explains the scaling and why the defaults suit the current tablet. It also covers how to adjust them for another one.
 
 The views:
 

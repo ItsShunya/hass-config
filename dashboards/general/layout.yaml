@@ -11,8 +11,11 @@
 # overlap. layout-card gives every card a 4px margin on each side, which would
 # leave an 8px gap between the sidebar and main. Starting main 8px before the
 # sidebar ends cancels it, so the two touch.
+#
+# The sidebar's width, like every size in the dashboard, is set in
+# www/styles/dashboard.css and scaled there to fit the screen.
 grid-template-columns: >-
-  [sidebar-start top-start bottom-start] 312px
+  [sidebar-start top-start bottom-start] calc(var(--dash-sidebar-width) * var(--dash-px))
   [main-start] 8px
   [sidebar-end top-end bottom-end] 1fr
   [main-end]

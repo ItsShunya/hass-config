@@ -200,7 +200,10 @@ tiles:
     label: Charging state
     entity: sensor.dreame_r2205_ad79_charging_state
 
-# Custom CSS styling for this card.
+# Custom CSS styling for this card. The map and the controls sit side by side
+# while there's room for both, else one above the other. Their widths scale
+# with the screen like the rest of the dashboard (www/styles/dashboard.css),
+# so a smaller screen keeps them side by side.
 card_mod:
   style: |
     ha-card {
@@ -213,9 +216,9 @@ card_mod:
     }
     .map-wrapper {
       flex-grow: 3;
-      width: 500px;
+      width: calc(500 * var(--dash-px));
     }
     .controls-wrapper {
       flex-grow: 1;
-      width: 300px;
+      width: calc(300 * var(--dash-px));
     }

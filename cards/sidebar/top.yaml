@@ -1,8 +1,17 @@
 # Top of the sidebar on every view: a large clock with the date, then the
 # navigation menu.
+#
+# Sizes are written as calc(N * var(--dash-px)) and spacing as
+# calc(N * var(--dash-space-px)): N pixels on the screen the dashboard is
+# drawn for, scaled to fit this one (see www/styles/dashboard.css).
 type: vertical-stack
 view_layout:
   grid-area: top
+card_mod:
+  style: |
+    :host {
+      --vertical-stack-card-gap: calc(8 * var(--dash-space-px));
+    }
 cards:
   # The template uses now(), so Home Assistant renders it again every minute.
   - type: markdown
@@ -11,24 +20,31 @@ cards:
       {{ now().strftime('%A') }} {{ now().day }} {{ now().strftime('%B %Y') }}
     card_mod:
       style:
+        # All the padding is set on ha-card, none on ha-markdown inside it.
         .: |
           ha-card {
             background: none;
             border: none;
             box-shadow: none;
-            padding: 24px 8px 8px;
+            padding:
+              calc(40 * var(--dash-space-px))
+              calc(24 * var(--dash-space-px))
+              calc(24 * var(--dash-space-px));
+          }
+          ha-card ha-markdown {
+            padding: 0;
           }
         ha-markdown$: |
           h1 {
             margin: 0;
-            font-size: 80px;
+            font-size: calc(80 * var(--dash-px));
             font-weight: 200;
             line-height: 1;
-            letter-spacing: -2px;
+            letter-spacing: calc(-2 * var(--dash-px));
           }
           p {
-            margin: 8px 0 0 4px;
-            font-size: 20px;
+            margin: calc(8 * var(--dash-space-px)) 0 0 calc(4 * var(--dash-px));
+            font-size: calc(20 * var(--dash-px));
             font-weight: 300;
             opacity: 0.5;
           }
@@ -49,20 +65,24 @@ cards:
       style: |
         {% set active = config.tap_action.navigation_path.endswith('/' ~ panel.viewUrlPath) %}
         ha-card {
-          --ha-heading-card-title-font-size: 22px;
+          --ha-heading-card-title-font-size: calc(22 * var(--dash-px));
           --ha-heading-card-title-font-weight: {{ 600 if active else 300 }};
         }
         ha-card .container {
-          padding: 0 12px;
+          padding: 0 calc(12 * var(--dash-space-px));
         }
         ha-card .container .content {
           flex: 1;
           flex-direction: row-reverse;
-          gap: 16px;
-          padding: 10px 20px 10px 24px;
+          gap: calc(16 * var(--dash-space-px));
+          padding:
+            calc(10 * var(--dash-space-px))
+            calc(20 * var(--dash-space-px))
+            calc(10 * var(--dash-space-px))
+            calc(24 * var(--dash-space-px));
           border-radius: 999px;
-          letter-spacing: 1.5px;
-          --mdc-icon-size: 30px;
+          letter-spacing: calc(1.5 * var(--dash-px));
+          --mdc-icon-size: calc(30 * var(--dash-px));
           background: {{ 'color-mix(in srgb, var(--primary-text-color) 8%, transparent)' if active else 'none' }};
         }
         ha-card .content p {
