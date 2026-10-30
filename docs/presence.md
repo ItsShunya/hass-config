@@ -51,4 +51,4 @@ The iPhone app can only report while iOS lets it run: when the phone moves, when
 
 ## Checking it
 
-Tap a picture in the sidebar to see that sensor's history. **Developer tools → States** shows the person, location tracker and Wi-Fi sensor of each phone, to see which of them is off.
+The pictures in the sidebar don't react to taps. **Developer tools → States** shows the person, location tracker and Wi-Fi sensor of each phone, to see which of them is off.
