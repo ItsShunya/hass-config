@@ -1,114 +1,16 @@
-# Floor plan with a tag on each room: the room's name over its readings.
-#
-# A tag is a conditional element with no conditions, so it's always shown:
-# it's the only element that can group others. Its style sets the point it's
-# centred on (left and top, as a share of the plan) and --room, the name on
-# top, in double quotes. Inside, each reading is an icon followed by a
-# state-label of the same entity. The room tags only show readings: they
-# don't react to taps. The alarm's tag is the exception. Their look is set
-# once, in card_mod at the end.
+# Floor plan with a tag on each room. The tags are in floorplan_elements.yaml;
+# this file only sets how they look. With a new image, update --plan-ratio.
 type: picture-elements
-elements:
-  - type: conditional
-    conditions: []
-    style:
-      left: 34%
-      top: 55%
-      --room: '"Bedroom"'
-    elements:
-      - type: icon
-        icon: mdi:thermometer
-        entity: sensor.bedroom_temperature
-      - type: state-label
-        entity: sensor.bedroom_temperature
-
-  # The sensors of the Verisure alarm.
-  - type: conditional
-    conditions: []
-    style:
-      left: 60%
-      top: 71%
-      --room: '"Living room"'
-    elements:
-      - type: icon
-        icon: mdi:thermometer
-        entity: sensor.living_room_temperature
-      - type: state-label
-        entity: sensor.living_room_temperature
-      - type: icon
-        icon: mdi:water-percent
-        entity: sensor.living_room_humidity
-      - type: state-label
-        entity: sensor.living_room_humidity
-      # Colored by the level: Good, Fair or Poor.
-      - type: icon
-        icon: mdi:air-filter
-        entity: sensor.living_room_air_quality
-        card_mod:
-          style: |
-            {% set color = {'Good': 'success', 'Fair': 'warning', 'Poor': 'error'}.get(states(config.entity)) %}
-            {% if color %}
-            ha-icon {
-              color: var(--{{ color }}-color);
-            }
-            {% endif %}
-      - type: state-label
-        entity: sensor.living_room_air_quality
-
-  # The kitchen's reading comes from the Echo Dot named "living room".
-  - type: conditional
-    conditions: []
-    style:
-      left: 85%
-      top: 86%
-      --room: '"Kitchen"'
-    elements:
-      - type: icon
-        icon: mdi:thermometer
-        entity: sensor.kitchen_temperature
-      - type: state-label
-        entity: sensor.kitchen_temperature
-
-  # The alarm, in the empty corner outside the house. Unlike the rooms it
-  # reacts to taps: its icon and state open the alarm's dialog, to arm or
-  # disarm it. The icon is colored like Home Assistant colors the alarm.
-  - type: conditional
-    conditions: []
-    style:
-      left: 89%
-      top: 17%
-      --room: '"Alarm"'
-      pointer-events: auto
-      cursor: pointer
-    elements:
-      - type: icon
-        icon: mdi:alarm-light
-        entity: alarm_control_panel.home_alarm
-        tap_action:
-          action: more-info
-        card_mod:
-          style: |
-            {% set state = states(config.entity) %}
-            {% set color = 'error' if state == 'triggered'
-              else 'warning' if state in ['arming', 'pending', 'disarming']
-              else 'success' if state.startswith('armed_') %}
-            {% if color %}
-            ha-icon {
-              color: var(--{{ color }}-color);
-            }
-            {% endif %}
-      - type: state-label
-        entity: alarm_control_panel.home_alarm
-        tap_action:
-          action: more-info
+elements: !include floorplan_elements.yaml
 image: /local/images/floor_plan.png
 view_layout:
   grid-area: main
 # Fit the plan inside its grid area, with no card around it, against the menu
-# on its left. #root keeps the image's shape (1166x948), so the tags stay on
-# their rooms. The image is cropped around the house to the shape of this
-# area on the tablet (see docs/dashboard-sizes.md), so there it fills the
-# area. On phones the plan just takes the full width.
+# on its left. #root keeps the image's shape, so the tags stay on their rooms:
+# --plan-ratio is the image's width / height (1166 / 948). The image is
+# cropped around the house to the shape of this area on the tablet (see
+# docs/dashboard-sizes.md), so there it fills the area. On phones the plan
+# just takes the full width.
 #
 # The tags are sized in cqw, hundredths of the plan's width, so they shrink
 # and grow with it and keep fitting their rooms. Below 10px they stop
@@ -116,6 +18,7 @@ view_layout:
 card_mod:
   style: |
     :host {
+      --plan-ratio: 1.23;
       height: 100%;
     }
     ha-card {
@@ -129,7 +32,7 @@ card_mod:
       box-shadow: none;
     }
     #root {
-      width: min(100cqw, 123cqh);
+      width: min(100cqw, calc(var(--plan-ratio) * 100cqh));
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
       container-type: inline-size;

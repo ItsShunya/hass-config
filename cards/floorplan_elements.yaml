@@ -1,0 +1,100 @@
+# The tags on the floor plan (cards/floorplan.yaml): each room's name over its
+# readings.
+#
+# A tag is a conditional element with no conditions, so it's always shown;
+# it's the only element that can group others. Its style sets where it's
+# centred (left and top, as a share of the plan) and --room, its name, in
+# double quotes. Inside, each reading is an icon followed by a state-label of
+# the same entity. Tags don't react to taps, except the alarm's.
+- type: conditional
+  conditions: []
+  style:
+    left: 34%
+    top: 55%
+    --room: '"Bedroom"'
+  elements:
+    - type: icon
+      icon: mdi:thermometer
+      entity: sensor.bedroom_temperature
+    - type: state-label
+      entity: sensor.bedroom_temperature
+
+# The sensors of the Verisure alarm.
+- type: conditional
+  conditions: []
+  style:
+    left: 60%
+    top: 71%
+    --room: '"Living room"'
+  elements:
+    - type: icon
+      icon: mdi:thermometer
+      entity: sensor.living_room_temperature
+    - type: state-label
+      entity: sensor.living_room_temperature
+    - type: icon
+      icon: mdi:water-percent
+      entity: sensor.living_room_humidity
+    - type: state-label
+      entity: sensor.living_room_humidity
+    # Colored by the level: Good, Fair or Poor.
+    - type: icon
+      icon: mdi:air-filter
+      entity: sensor.living_room_air_quality
+      card_mod:
+        style: |
+          {% set color = {'Good': 'success', 'Fair': 'warning', 'Poor': 'error'}.get(states(config.entity)) %}
+          {% if color %}
+          ha-icon {
+            color: var(--{{ color }}-color);
+          }
+          {% endif %}
+    - type: state-label
+      entity: sensor.living_room_air_quality
+
+# The kitchen's reading comes from the Echo Dot named "living room".
+- type: conditional
+  conditions: []
+  style:
+    left: 85%
+    top: 86%
+    --room: '"Kitchen"'
+  elements:
+    - type: icon
+      icon: mdi:thermometer
+      entity: sensor.kitchen_temperature
+    - type: state-label
+      entity: sensor.kitchen_temperature
+
+# The alarm, in the empty corner outside the house. Unlike the rooms it
+# reacts to taps: its icon and state open the alarm's dialog, to arm or
+# disarm it. The icon is colored like Home Assistant colors the alarm.
+- type: conditional
+  conditions: []
+  style:
+    left: 89%
+    top: 17%
+    --room: '"Alarm"'
+    pointer-events: auto
+    cursor: pointer
+  elements:
+    - type: icon
+      icon: mdi:alarm-light
+      entity: alarm_control_panel.home_alarm
+      tap_action:
+        action: more-info
+      card_mod:
+        style: |
+          {% set state = states(config.entity) %}
+          {% set color = 'error' if state == 'triggered'
+            else 'warning' if state in ['arming', 'pending', 'disarming']
+            else 'success' if state.startswith('armed_') %}
+          {% if color %}
+          ha-icon {
+            color: var(--{{ color }}-color);
+          }
+          {% endif %}
+    - type: state-label
+      entity: alarm_control_panel.home_alarm
+      tap_action:
+        action: more-info

@@ -143,7 +143,7 @@ Phones keep the drawn sizes, since there the dashboard scrolls anyway. [docs/das
 
 The views:
 
-- **Home** (`views/overview.yaml`): The floor plan (`cards/floorplan.yaml`), scaled to fit the screen. A small tag on each room shows its readings: the temperature, plus humidity and air quality in the living room.
+- **Home** (`views/overview.yaml`): The floor plan (`cards/floorplan.yaml`), scaled to fit the screen. A small tag on each room shows its readings: the temperature, plus humidity and air quality in the living room. The tags are in `cards/floorplan_elements.yaml`.
 - **Cleaning** (`views/cleaning.yaml`): The interactive robot vacuum map (`cards/vacuum_map.yaml`). From it you can start, pause and send the vacuum home, and clean a selected zone or room.
 - **Calendar** (`views/calendar.yaml`): A placeholder until a calendar integration is set up.
 - **Music** (`views/music.yaml`): Media controls for the Echo Dots.
