@@ -2,23 +2,20 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["config:recommended"],
 
-  // Only report updates in the Dependency Dashboard issue. Renovate creates
-  // no branch or PR unless its box is ticked there: vendored code has to be
-  // replaced by hand (see docs/vendored.md), not just its version number.
+  // Only list updates in the dashboard issue, no PRs. Vendored code has to be
+  // replaced by hand (docs/vendored.md), bumping the version isn't enough.
   dependencyDashboardApproval: true,
   dependencyDashboardAutoclose: true,
   dependencyDashboardTitle: "Updates available",
   dependencyDashboardLabels: ["updates"],
 
-  // Only the version sources below, plus the actions used by the workflows.
-  // The built-in homeassistant-manifest manager would list every vendored
+  // The built-in homeassistant-manifest manager would also list every
   // integration's Python requirements, which we don't manage.
   enabledManagers: ["custom.regex", "github-actions"],
 
   packageRules: [
     {
-      // Unlike the vendored code, bumping an action is the whole update, so
-      // open one grouped PR right away; CI runs on it before merging.
+      // For actions the version bump is the whole update, so open a PR.
       description: "GitHub Actions used by the workflows",
       matchManagers: ["github-actions"],
       dependencyDashboardApproval: false,
@@ -26,9 +23,8 @@
     },
   ],
 
-  // Integrations and cards use "loose" versioning: the default one skips the
-  // map extractor's "v3.0.0-alpha-N" releases entirely, and strict semver
-  // sorts alpha-9 above alpha-24.
+  // Integrations and cards use "loose" versioning: the default skips the map
+  // extractor's v3.0.0-alpha-N releases, and semver sorts alpha-9 above alpha-24.
 
   customManagers: [
     {

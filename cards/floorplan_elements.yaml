@@ -1,11 +1,10 @@
-# The tags on the floor plan (cards/floorplan.yaml): each room's name over its
+# Tags on the floor plan (cards/floorplan.yaml): each room's name over its
 # readings.
 #
-# A tag is a conditional element with no conditions, so it's always shown;
-# it's the only element that can group others. Its style sets where it's
-# centred (left and top, as a share of the plan) and --room, its name, in
-# double quotes. Inside, each reading is an icon followed by a state-label of
-# the same entity. Tags don't react to taps, except the alarm's.
+# Each tag is a conditional element with no conditions, since that's the only
+# element that can group others. `left` and `top` place its centre on the plan
+# and `--room` is its name (in double quotes, it's used as CSS content).
+# Inside, each reading is an icon plus a state-label of the same entity.
 - type: conditional
   conditions: []
   style:
@@ -19,7 +18,7 @@
     - type: state-label
       entity: sensor.bedroom_temperature
 
-# The sensors of the Verisure alarm.
+# From the Verisure alarm's sensors.
 - type: conditional
   conditions: []
   style:
@@ -66,9 +65,9 @@
     - type: state-label
       entity: sensor.kitchen_temperature
 
-# The alarm, in the empty corner outside the house. Unlike the rooms it
-# reacts to taps: its icon and state open the alarm's dialog, to arm or
-# disarm it. The icon is colored like Home Assistant colors the alarm.
+# The alarm, in an empty corner outside the house. It's the only tag that
+# reacts to taps: they open the dialog to arm or disarm it. The icon uses
+# Home Assistant's usual alarm colors.
 - type: conditional
   conditions: []
   style:

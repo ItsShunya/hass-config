@@ -1,15 +1,15 @@
 type: custom:xiaomi-vacuum-map-card
 title: ''
 vacuum_platform: al-one/hass-xiaomi-miot
-# Anchor (&vacuum) reused below as *vacuum, so the entity is set only here.
+# Reused below as *vacuum.
 entity: &vacuum vacuum.robot_vacuum
 view_layout:
   grid-area: main
 
-# Map's camera source comes from Xiaomi Cloud Map Extractor.
+# From Xiaomi Cloud Map Extractor.
 map_source:
   camera: camera.robot_vacuum_map
-  crop: # Zoomout
+  crop: # zoom out
     top: -100
     bottom: -100
     left: -100
@@ -19,9 +19,7 @@ map_locked: true
 calibration_source:
   camera: true
 
-# List of icons in the main bar (e.g. Play, Stop, etc).
 icons:
-  # Start clean routine, or resume it when paused.
   - icon: mdi:play
     tooltip: Start / Resume
     tap_action:
@@ -34,8 +32,8 @@ icons:
         value_not: cleaning
       - entity: *vacuum
         value_not: returning
-  # Pause current routine. The r2205 has no pause action: xiaomi_miot maps
-  # vacuum.stop to "stop-sweeping", which pauses the task on Dreame robots.
+  # The r2205 has no pause action, but xiaomi_miot maps vacuum.stop to
+  # "stop-sweeping", which pauses on Dreame robots.
   - icon: mdi:pause
     tooltip: Pause
     tap_action:
@@ -52,7 +50,6 @@ icons:
         value_not: error
       - entity: *vacuum
         value_not: paused
-  # Return to the dock to charge.
   - icon: mdi:home-map-marker
     tooltip: Return to base
     tap_action:
@@ -65,7 +62,6 @@ icons:
         value_not: docked
       - entity: *vacuum
         value_not: returning
-  # Locate the vacuum (by sound).
   - icon: mdi:map-marker
     tooltip: Locate
     tap_action:
@@ -74,9 +70,8 @@ icons:
       service_data:
         entity_id: *vacuum
 
-# Configurable actions in the map. Both call scripts from packages/vacuum.yaml,
-# which hold the vacuum-specific MIoT call. '[[selection]]' is passed as-is:
-# a list of rectangles for zones, a list of room ids for rooms.
+# Both modes call the scripts in packages/vacuum.yaml. '[[selection]]' is
+# passed as is: a list of rectangles for zones, a list of room ids for rooms.
 map_modes:
   - template: vacuum_clean_zone
     name: Zone cleanup
@@ -182,7 +177,6 @@ map_modes:
           - - -6700
             - 650
 
-# Extra customizable tiles at the bottom for sensors/buttons.
 tiles:
   - icon: mdi:brush
     label: Main brush time remaining (h)
@@ -200,15 +194,11 @@ tiles:
     label: Charging state
     entity: sensor.robot_vacuum_charging_state
 
-# Custom CSS styling for this card. The map and the controls sit side by side
-# while there's room for both, else one above the other. Their widths scale
-# with the screen like the rest of the dashboard (www/styles/dashboard.css),
-# so a smaller screen keeps them side by side.
+# Map and controls side by side when there's room, stacked otherwise. Their
+# widths scale with --dash-px, so they stay side by side on a smaller tablet.
 card_mod:
   style: |
     ha-card {
-      /* --map-card-primary-color: blue; */
-      /* --map-card-zoomer-background: rgba(155, 130, 131, 0.7); */
       display: flex !important;
       align-items: stretch;
       flex-wrap: wrap;

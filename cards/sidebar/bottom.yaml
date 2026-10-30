@@ -1,9 +1,6 @@
-# Bottom of the sidebar on every view: who is home, then pollen, the weather
-# outside and the temperature inside.
-#
-# Sizes are written as calc(N * var(--dash-px)) and spacing as
-# calc(N * var(--dash-space-px)): N pixels on the screen the dashboard is
-# drawn for, scaled to fit this one (see www/styles/dashboard.css).
+# Bottom of the sidebar: who's home, pollen, the weather and the inside
+# temperature. Sizes scale with the screen through --dash-px and
+# --dash-space-px (docs/dashboard.md).
 type: vertical-stack
 view_layout:
   grid-area: bottom
@@ -13,8 +10,8 @@ card_mod:
       --vertical-stack-card-gap: calc(8 * var(--dash-space-px));
     }
 cards:
-  # People: their pictures in circles, faded when they're away. The slots come
-  # from packages/presence.yaml; empty ones are hidden. Taps do nothing.
+  # People's pictures, faded when they're away. The slots come from
+  # packages/presence.yaml and empty ones are hidden. Taps do nothing.
   - type: glance
     show_name: false
     show_state: false
@@ -23,9 +20,8 @@ cards:
       - binary_sensor.presence_2
       - binary_sensor.presence_3
       - binary_sensor.presence_4
-    # The card's own rules load after these, so selectors are made more
-    # specific than its own. Each entity draws its picture inside its own
-    # shadow root, reached with "$".
+    # Selectors are more specific than the card's own rules, which load later.
+    # Each picture is inside the entity's shadow root, reached with "$".
     card_mod:
       style:
         .: |
@@ -68,9 +64,9 @@ cards:
             border-radius: 50%;
           }
 
-  # Pollen (packages/pollen.yaml), the weather outside and the temperature
-  # inside: values on the left, an icon on the right. The pollen icon sits in
-  # a ring that fills up and changes color with the level.
+  # Pollen, weather and inside temperature: values on the left, icons on the
+  # right. The pollen icon sits in a ring that fills up and changes color with
+  # the level.
   - type: markdown
     content: |
       {%- set weather = 'weather.forecast_home' -%}
@@ -99,7 +95,7 @@ cards:
       </table>
     card_mod:
       style:
-        # All the padding is set on ha-card, none on ha-markdown inside it.
+        # Padding goes on ha-card only.
         .: |
           ha-card {
             background: none;

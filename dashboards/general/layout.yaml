@@ -1,19 +1,14 @@
-# Grid shared by every view (layout-card's custom:grid-layout): a sidebar on
-# the left and the view's own content on the right. Each card picks its place
-# with `view_layout: grid-area: <name>`, which spans the grid lines named
-# <name>-start to <name>-end below:
-#   sidebar  the sidebar's background panel (cards/sidebar/background.yaml)
+# Grid shared by every view. Cards pick their place with
+# `view_layout: grid-area: <name>`, spanning the lines <name>-start to
+# <name>-end below:
+#   sidebar  background panel (cards/sidebar/background.yaml)
 #   top      clock, date and menu (cards/sidebar/top.yaml)
 #   bottom   people, pollen and temperatures (cards/sidebar/bottom.yaml)
 #   main     the view's content
 #
-# Named lines are used instead of grid-template-areas because areas can't
-# overlap. layout-card gives every card a 4px margin on each side, which would
-# leave an 8px gap between the sidebar and main. Starting main 8px before the
-# sidebar ends cancels it, so the two touch.
-#
-# The sidebar's width, like every size in the dashboard, is set in
-# www/styles/dashboard.css and scaled there to fit the screen.
+# Named lines instead of grid-template-areas, because areas can't overlap.
+# layout-card puts a 4px margin around every card, which would leave an 8px
+# gap between the sidebar and main, so main starts 8px early to close it.
 grid-template-columns: >-
   [sidebar-start top-start bottom-start] calc(var(--dash-sidebar-width) * var(--dash-px))
   [main-start] 8px
@@ -25,17 +20,16 @@ grid-template-rows: >-
   [top-end] 1fr
   [bottom-start] auto
   [bottom-end sidebar-end main-end]
-# Fill the view, so the sidebar reaches the bottom of the screen. The view
-# already excludes the top bar when kiosk-mode shows it (?disable_km).
+# Fill the view so the sidebar reaches the bottom of the screen. The view's
+# height already leaves out the header when ?disable_km shows it.
 height: 100%
-# Spacing comes from the cards' own margins. No margin or padding around
-# the grid: padding would add to the height, and the grid clips anything
-# outside it, like the part of the sidebar panel reaching the screen edge.
+# Spacing comes from the cards' margins. Padding here would add to the height,
+# and with a margin the sidebar panel wouldn't reach the screen edge, since the
+# grid clips anything outside it.
 margin: 0
 padding: 0
 mediaquery:
-  # Phones: a single column, scrolled as a whole: top, main, bottom. The
-  # background panel hides itself at this width.
+  # Phones: one scrolling column with top, main, then bottom.
   "(max-width: 800px)":
     grid-template-columns: >-
       [sidebar-start top-start bottom-start main-start] 100%

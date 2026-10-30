@@ -1,9 +1,7 @@
-# yamllint configuration (https://yamllint.readthedocs.io).
-# Run locally with `yamllint --strict .`; CI runs the same command.
+# Run with `make lint`, same as CI.
 extends: default
 
-# Third-party files are linted upstream, not here. The last two are
-# gitignored but can exist in a local clone.
+# Third-party files, plus two gitignored ones that may exist locally.
 ignore: |
   custom_components/
   www/plugins/

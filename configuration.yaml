@@ -1,13 +1,10 @@
-# Each file in packages/ groups everything one feature needs (automations,
-# scripts, helpers, template sensors...). Only packages is set here: core
-# settings like location or units stay editable in the UI.
+# One file per feature in packages/. Nothing else is set here, so location,
+# units and so on stay editable in the UI.
 homeassistant:
   packages: !include_dir_named packages
 
-# These are from default_config, with the ones that I don't need
-# commented out. It would be nice if the default_config: could have
-# an exclude list, to stay in sync with the distributed defaults,
-# but currently this is not possible.
+# default_config, with the ones I don't need commented out. default_config
+# can't exclude anything, so they have to be listed by hand.
 #assist_pipeline:
 backup:
 #bluetooth:
@@ -32,23 +29,19 @@ usb:
 webhooks:
 #zeroconf:
 
-
-# Load frontend themes from the themes folder
 frontend:
   themes: !include_dir_merge_named themes
-  # kiosk-mode is loaded here rather than as a lovelace resource, so it runs
-  # before a dashboard draws and the header doesn't flash. Each kiosk-mode
-  # release only works with a range of Home Assistant versions: update both
-  # together (see docs/vendored.md).
+  # kiosk-mode goes here instead of in lovelace resources so it runs before
+  # the dashboard draws, otherwise the header flashes. Update it together with
+  # Home Assistant (docs/vendored.md).
   extra_module_url:
     # renovate: repo=NemesisRE/kiosk-mode
     - /local/plugins/kiosk-mode/kiosk-mode.js?v=10.0.1
 
 lovelace:
   resource_mode: yaml
-  # Bump ?v= on every card update so browsers drop the cached file.
-  # The "renovate" comments tell Renovate where to look for new releases.
-  # (see docs/vendored.md).
+  # Bump ?v= whenever a file changes, or browsers keep the cached copy. The
+  # renovate comments tell Renovate where to look for new releases.
   resources:
     # renovate: repo=PiotrMachowski/lovelace-xiaomi-vacuum-map-card
     - url: /local/plugins/xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js?v=2.3.2
@@ -65,7 +58,7 @@ lovelace:
     # renovate: repo=thomasloven/lovelace-layout-card
     - url: /local/plugins/layout-card/layout-card.js?v=2.4.7
       type: module
-    # Our own: the General dashboard's sizes. Bump ?v= after editing it.
+    # Our own: the dashboard's sizes (docs/dashboard.md).
     - url: /local/styles/dashboard.css?v=1
       type: css
   dashboards:
@@ -76,13 +69,12 @@ lovelace:
       icon: mdi:home
       show_in_sidebar: true
 
-# Only log warnings and errors. To debug an integration temporarily, use the
-# logger.set_level action (e.g. custom_components.xiaomi_miot: debug).
+# To debug an integration, raise its level with the logger.set_level action
+# (e.g. custom_components.xiaomi_miot: debug) instead of changing this.
 logger:
   default: warning
 
-# The home-assistant server lives behind a proxy: nginx on the same host
-# so only loopback is trusted to set X-Forwarded-For.
+# Behind nginx on the same host, so only loopback may set X-Forwarded-For.
 http:
   use_x_forwarded_for: true
   trusted_proxies:

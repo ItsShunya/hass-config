@@ -1,20 +1,18 @@
-# Floor plan with a tag on each room. The tags are in floorplan_elements.yaml;
-# this file only sets how they look. With a new image, update --plan-ratio.
+# Floor plan with a tag on each room. The tags are in floorplan_elements.yaml,
+# this file only styles them.
 type: picture-elements
 elements: !include floorplan_elements.yaml
 image: /local/images/floor_plan.png
 view_layout:
   grid-area: main
-# Fit the plan inside its grid area, with no card around it, against the menu
-# on its left. #root keeps the image's shape, so the tags stay on their rooms:
-# --plan-ratio is the image's width / height (1166 / 948). The image is
-# cropped around the house to the shape of this area on the tablet (see
-# docs/dashboard-sizes.md), so there it fills the area. On phones the plan
-# just takes the full width.
+# The plan fits its grid area with no card around it. #root keeps the image's
+# aspect ratio so the tags stay on their rooms: --plan-ratio is its width /
+# height (1166 / 948), update it with a new image. The image is cropped to the
+# shape of this area on the tablet, so there it fills it. On phones it takes
+# the full width.
 #
-# The tags are sized in cqw, hundredths of the plan's width, so they shrink
-# and grow with it and keep fitting their rooms. Below 10px they stop
-# shrinking, to stay readable on phones, where they outgrow their rooms.
+# Tags are sized in cqw (1% of the plan's width) so they scale with it. They
+# stop shrinking at 10px to stay readable on phones.
 card_mod:
   style: |
     :host {
@@ -58,8 +56,8 @@ card_mod:
       text-transform: uppercase;
       color: var(--secondary-text-color);
     }
-    /* The card positions every element on its own; inside a tag they line
-       up after the name, centred on each other. */
+    /* The card positions every element absolutely. Inside a tag, put them
+       in a row after the name instead. */
     #root > hui-conditional-element > .element {
       position: static;
       transform: none;
@@ -70,8 +68,8 @@ card_mod:
       margin-right: 0.2em;
       color: var(--secondary-text-color);
     }
-    /* state-label pads its text by 8px inside its own shadow root, out of
-       reach of these styles: a matching negative margin cancels it. */
+    /* state-label pads its text by 8px inside its shadow root, which we
+       can't style, so cancel it with a negative margin. */
     #root > hui-conditional-element > hui-state-label-element {
       margin: -8px;
     }

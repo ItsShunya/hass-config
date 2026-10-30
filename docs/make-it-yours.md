@@ -1,20 +1,14 @@
 # Making it yours
 
-Most of this repository works in any home. This is what you need to change.
+Most of this works in any home. Start with the [setup in the README](../README.md#setup), then change the parts below.
 
-## Server
+## Reverse proxy
 
-- Copy `local.mk.example` to `local.mk` and set your server.
-- Run the Home Assistant version in `.HA_VERSION`. If you change it, update kiosk-mode too (see [vendored.md](vendored.md)).
-- `configuration.yaml` expects a reverse proxy on the same host. If yours is elsewhere, add it to `trusted_proxies`. With no proxy, remove `use_x_forwarded_for` and `trusted_proxies`.
-
-Then follow the README's [Initial Setup](../README.md#initial-setup), and fill in your secrets with `make secrets` (see `secrets.example.yaml`).
+`configuration.yaml` trusts a reverse proxy on the same host. If yours runs somewhere else, add its address to `trusted_proxies`. With no proxy, remove `use_x_forwarded_for` and `trusted_proxies`.
 
 ## Devices
 
-The cards name entities by what they are (`sensor.bedroom_temperature`), not by device. Rename yours to match the table in the README.
-
-If your rooms or devices are different, edit the cards that use them:
+Rename your entities to match the [table in the README](../README.md#setup). If your rooms or devices are different, edit the cards that use them:
 
 - `cards/floorplan_elements.yaml`: room readings and the alarm.
 - `cards/sidebar/bottom.yaml`: inside temperature and weather.
@@ -23,22 +17,22 @@ If your rooms or devices are different, edit the cards that use them:
 
 ## People
 
-Nothing to edit. Set up the people and their phones as in [presence.md](presence.md).
+Nothing to edit. Add the people and set up their phones as in [presence.md](presence.md).
 
 ## Floor plan
 
 1. Replace `www/images/floor_plan.png`.
 2. Set `--plan-ratio` in `cards/floorplan.yaml` to the image's width / height.
-3. Edit the room tags in `cards/floorplan_elements.yaml`.
+3. Move the room tags in `cards/floorplan_elements.yaml`.
 
 ## Vacuum
 
 - Redraw your rooms under `predefined_selections` in `cards/vacuum_map.yaml`.
-- If it isn't a Dreame on Xiaomi Miot, also rewrite the two scripts in `packages/vacuum.yaml` and set `vacuum_platform` in `cards/vacuum_map.yaml`.
+- If it isn't a Dreame on Xiaomi Miot, also rewrite the two scripts in `packages/vacuum.yaml` and change `vacuum_platform` in `cards/vacuum_map.yaml`.
 
 ## Screen
 
-The dashboard is drawn for a 1280x840 tablet. For other screens, see [dashboard-sizes.md](dashboard-sizes.md).
+The dashboard is made for a 1280x800 tablet. For other screens, see [dashboard.md](dashboard.md#another-tablet).
 
 ## Removing features
 
@@ -51,4 +45,4 @@ The dashboard is drawn for a 1280x840 tablet. For other screens, see [dashboard-
 | Presence | `packages/presence.yaml`, `custom_templates/presence.jinja` and the glance card in `cards/sidebar/bottom.yaml` |
 | Pollen | `packages/pollen.yaml`, and its row and ring styling in `cards/sidebar/bottom.yaml` |
 
-Also remove vendored components from [vendored.md](vendored.md). Deploying doesn't delete files on the server, so remove them there with `make exec`.
+Take removed components out of the tables in [vendored.md](vendored.md) too, and delete the files on the server with `make exec`, since deploying won't.

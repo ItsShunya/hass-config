@@ -1,11 +1,8 @@
-# Who is home, shown in the sidebar (cards/sidebar/bottom.yaml).
+# Who is home, for the sidebar (cards/sidebar/bottom.yaml): anyone whose phone
+# is in the home zone or on the home Wi-Fi. See docs/presence.md.
 #
-# Someone is home if their phone is in the home zone or on the home Wi-Fi.
-# Nobody is listed here: custom_templates/presence.jinja finds the people and
-# their phones. See docs/presence.md.
-#
-# The Wi-Fi names are in secrets.yaml under `home_wifi`, since a network's
-# name can be looked up on a map.
+# The Wi-Fi names are a secret because a network's name can be looked up on
+# a map.
 
 template:
   - variables:

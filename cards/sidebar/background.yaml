@@ -1,7 +1,6 @@
-# Background panel of the sidebar: an empty card spanning the whole left
-# column, reaching the screen's top, left and bottom edges. It must come
-# before the other sidebar cards in each view, so it's drawn behind them.
-# Hidden on phones, where the sidebar's cards stack around the content.
+# Sidebar background: an empty card filling the left column out to the screen
+# edges. It has to come before the other sidebar cards in each view so it's
+# drawn behind them. Hidden on phones.
 type: markdown
 content: " "
 view_layout:

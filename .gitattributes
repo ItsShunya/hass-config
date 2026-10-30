@@ -1,5 +1,4 @@
-# Files that only belong to the repository: keep them out of
-# `git archive`, which is used to deploy into /config (see README.md).
+# Repo-only files, kept out of the `git archive` that `make deploy` sends.
 /.editorconfig export-ignore
 /.gitattributes export-ignore
 /.github export-ignore

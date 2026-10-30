@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Check that every file the configuration references exists and parses.
+"""Check that every file the config references exists and is valid YAML.
 
-Home Assistant's check_config does not read YAML dashboards (they are only
-loaded when opened), so a missing include or dashboard file goes unnoticed
-until someone opens the dashboard. Starting from configuration.yaml, this
-follows !include tags, lovelace dashboard filenames and /local/ URLs, and
-exits non-zero if any target is missing or is not valid YAML.
+Home Assistant's check_config doesn't read YAML dashboards (they're only
+loaded when opened), so a broken include in one goes unnoticed until someone
+opens it. This starts at configuration.yaml and follows !include tags,
+dashboard filenames and /local/ URLs.
 """
 
 import sys

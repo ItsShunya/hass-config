@@ -1,17 +1,16 @@
 # Robot vacuum (Dreame D10 Plus, dreame.vacuum.r2205, via Xiaomi Miot).
-# The vacuum map card is in cards/vacuum_map.yaml; its Rooms and Zone
-# cleanup modes call the scripts below.
+# The Rooms and Zone cleanup modes of cards/vacuum_map.yaml call these scripts.
 
 script:
-  # Both scripts call the MIoT "start-clean" action (siid 4, aiid 1). piid 1
-  # is the work mode (18 = rooms, 19 = zone) and piid 10 the task as a JSON
-  # string, where suction is 1 (Standard) and water 2 (Medium):
+  # Both call the MIoT "start-clean" action (siid 4, aiid 1). piid 1 is the
+  # work mode (18 = rooms, 19 = zone) and piid 10 the task as a JSON string,
+  # with suction 1 (Standard) and water 2 (Medium):
   #   rooms: [room_id, repeats, suction, water, order]
   #   zone:  [x1, y1, x2, y2, repeats, suction, water]
   #
-  # params is rendered as one template on purpose. Home Assistant turns a
-  # template that renders to JSON into a dict, but the vacuum needs piid 10
-  # as a string; nested inside the list, to_json's output stays a string.
+  # params is one template on purpose: Home Assistant parses a template that
+  # renders to JSON into a dict, but piid 10 has to stay a string. Nested
+  # inside the list, it does.
   vacuum_clean_rooms:
     alias: Vacuum - clean rooms
     description: Clean one or more rooms, in the given order.

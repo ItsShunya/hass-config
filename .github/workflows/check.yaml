@@ -22,8 +22,7 @@ jobs:
       - name: yamllint
         run: yamllint --strict .
 
-      # check_config below does not read YAML dashboards, so this catches
-      # missing includes, dashboard files and /local/ files instead.
+      # check_config below doesn't read YAML dashboards, this does.
       - name: Referenced files exist
         run: python .github/scripts/check_references.py
 
@@ -33,13 +32,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Test against the version the server runs (see .HA_VERSION in README).
+      # Same version as the server.
       - name: Read Home Assistant version
         id: version
         run: echo "version=$(cat .HA_VERSION)" >> "$GITHUB_OUTPUT"
 
-      # secrets.yaml is not in git: the example's placeholders stand in for
-      # it. A secret missing from the example fails with a clear message.
+      # secrets.yaml isn't in git, so use the example's placeholders.
       - name: Run check_config
         run: |
           cp secrets.example.yaml secrets.yaml

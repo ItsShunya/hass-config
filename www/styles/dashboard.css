@@ -1,40 +1,29 @@
 /*
- * Sizes of the General dashboard (dashboards/general/), kept in one place so
- * they can be adjusted for another screen. Loaded as a stylesheet resource in
- * configuration.yaml: after editing this file, bump its ?v= there, deploy,
- * restart Home Assistant and reload the browser. docs/dashboard-sizes.md
- * explains how to adapt these settings to another tablet.
+ * Sizes for the General dashboard, see docs/dashboard.md. After editing, bump
+ * this file's ?v= in configuration.yaml, deploy and restart.
  *
- * The dashboard is drawn for a screen of --dash-screen-width by
- * --dash-screen-height CSS pixels. On any other screen it's scaled to fit,
- * like a picture: smaller on a smaller screen, so nothing scrolls, and larger
- * on a larger one. CSS pixels aren't the screen's resolution: a 2560x1600
- * tablet with a device pixel ratio of 2 is 1280x800 CSS pixels.
- *
- * Every card inherits the custom properties set here. Their card_mod styles
- * write sizes as calc(80 * var(--dash-px)): 80px on the screen the dashboard
- * is drawn for, scaled to this one.
+ * The dashboard is drawn for a --dash-screen-width x --dash-screen-height
+ * screen and scaled to fit the real one. Cards write their sizes as
+ * calc(N * var(--dash-px)), N being pixels on the drawn screen.
  */
 :root {
-  /* Screen the dashboard is drawn for, in CSS pixels (numbers, no unit).
-     The sidebar needs up to about 800px of height. The extra 40px leaves
-     room for error, and for the margins around the cards, which don't
-     shrink with the rest. */
+  /* Screen the dashboard is drawn for, in CSS pixels (no unit). The sidebar
+     is up to about 800px tall; the extra 40 covers rounding and the card
+     margins, which don't scale. */
   --dash-screen-width: 1280;
   --dash-screen-height: 840;
 
-  /* Size of everything, on top of the fit: 1.1 is 10% larger, 0.9 is 10%
-     smaller. Above 1 the content may no longer fit, and the view scrolls. */
+  /* Size of everything on top of the fit: 1.1 is 10% bigger. Above 1 the
+     content may stop fitting and the view scrolls. */
   --dash-scale: 1;
 
-  /* Space between and inside the sidebar's items, relative to their size:
-     0.5 halves it, 1.5 adds half again. */
+  /* Space between and inside the sidebar's items: 0.5 halves it. */
   --dash-spacing: 1;
 
-  /* Width of the sidebar, in drawn pixels: it's scaled like the rest. */
+  /* Sidebar width, in drawn pixels. */
   --dash-sidebar-width: 312;
 
-  /* Computed from the values above; the cards use these two. */
+  /* Computed from the above. The cards use the last two. */
   --dash-view-height: 100vh;
   --dash-px: calc(var(--dash-scale) * min(
     100vw / var(--dash-screen-width),
@@ -42,17 +31,16 @@
   --dash-space-px: calc(var(--dash-px) * var(--dash-spacing));
 }
 
-/* In a browser with an address bar, 100vh is the height with the bar
-   hidden, taller than what's visible while it shows. dvh is what's visible. */
+/* With a browser address bar showing, 100vh is taller than what's visible.
+   dvh is what's visible. */
 @supports (height: 100dvh) {
   :root {
     --dash-view-height: 100dvh;
   }
 }
 
-/* Phones (800px wide or less, as in layout.yaml): the views become a single
-   column that scrolls, so they keep their drawn size instead of shrinking to
-   the screen's width. */
+/* Phones (same breakpoint as layout.yaml) scroll anyway, so keep the drawn
+   sizes instead of shrinking to the screen's width. */
 @media (max-width: 800px) {
   :root {
     --dash-px: 1px;

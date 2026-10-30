@@ -1,9 +1,5 @@
-# Top of the sidebar on every view: a large clock with the date, then the
-# navigation menu.
-#
-# Sizes are written as calc(N * var(--dash-px)) and spacing as
-# calc(N * var(--dash-space-px)): N pixels on the screen the dashboard is
-# drawn for, scaled to fit this one (see www/styles/dashboard.css).
+# Top of the sidebar: clock, date and menu. Sizes scale with the screen
+# through --dash-px and --dash-space-px (docs/dashboard.md).
 type: vertical-stack
 view_layout:
   grid-area: top
@@ -13,14 +9,14 @@ card_mod:
       --vertical-stack-card-gap: calc(8 * var(--dash-space-px));
     }
 cards:
-  # The template uses now(), so Home Assistant renders it again every minute.
+  # Uses now(), so it gets rendered again every minute.
   - type: markdown
     content: |
       # {{ now().strftime('%H:%M') }}
       {{ now().strftime('%A') }} {{ now().day }} {{ now().strftime('%B %Y') }}
     card_mod:
       style:
-        # All the padding is set on ha-card, none on ha-markdown inside it.
+        # Padding goes on ha-card only.
         .: |
           ha-card {
             background: none;
@@ -49,18 +45,16 @@ cards:
             opacity: 0.5;
           }
 
-  # Menu: one heading card per view. The item for the view being shown gets
-  # a pill background and bold text: card-mod's `panel.viewUrlPath` is the
-  # path of the current view, compared with the item's own link.
+  # Menu: one heading card per view. The current one is bold on a pill
+  # background (its link ends in card-mod's panel.viewUrlPath).
   - type: heading
     heading: Home
     icon: mdi:floor-plan
     tap_action:
       action: navigate
       navigation_path: /lovelace-general/overview
-    # Text on the left, icon on the right, and the whole row clickable. The
-    # card's own rules load after these, so selectors start with ha-card to
-    # outrank them.
+    # Text on the left, icon on the right, whole row clickable. Selectors
+    # start with ha-card to outrank the card's own rules, which load later.
     card_mod: &item
       style: |
         {% set active = config.tap_action.navigation_path.endswith('/' ~ panel.viewUrlPath) %}
