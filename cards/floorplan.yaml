@@ -18,9 +18,9 @@ elements:
     elements:
       - type: icon
         icon: mdi:thermometer
-        entity: sensor.shunya_s_echo_dot_bedroom_temperature
+        entity: sensor.bedroom_temperature
       - type: state-label
-        entity: sensor.shunya_s_echo_dot_bedroom_temperature
+        entity: sensor.bedroom_temperature
 
   # The sensors of the Verisure alarm.
   - type: conditional
@@ -32,18 +32,18 @@ elements:
     elements:
       - type: icon
         icon: mdi:thermometer
-        entity: sensor.verisure_temperature
+        entity: sensor.living_room_temperature
       - type: state-label
-        entity: sensor.verisure_temperature
+        entity: sensor.living_room_temperature
       - type: icon
         icon: mdi:water-percent
-        entity: sensor.verisure_humidity
+        entity: sensor.living_room_humidity
       - type: state-label
-        entity: sensor.verisure_humidity
+        entity: sensor.living_room_humidity
       # Colored by the level: Good, Fair or Poor.
       - type: icon
         icon: mdi:air-filter
-        entity: sensor.verisure_air_quality_status
+        entity: sensor.living_room_air_quality
         card_mod:
           style: |
             {% set color = {'Good': 'success', 'Fair': 'warning', 'Poor': 'error'}.get(states(config.entity)) %}
@@ -53,7 +53,7 @@ elements:
             }
             {% endif %}
       - type: state-label
-        entity: sensor.verisure_air_quality_status
+        entity: sensor.living_room_air_quality
 
   # The kitchen's reading comes from the Echo Dot named "living room".
   - type: conditional
@@ -65,9 +65,9 @@ elements:
     elements:
       - type: icon
         icon: mdi:thermometer
-        entity: sensor.shunya_s_echo_dot_living_room_temperature
+        entity: sensor.kitchen_temperature
       - type: state-label
-        entity: sensor.shunya_s_echo_dot_living_room_temperature
+        entity: sensor.kitchen_temperature
 
   # The alarm, in the empty corner outside the house. Unlike the rooms it
   # reacts to taps: its icon and state open the alarm's dialog, to arm or
@@ -83,7 +83,7 @@ elements:
     elements:
       - type: icon
         icon: mdi:alarm-light
-        entity: alarm_control_panel.verisure
+        entity: alarm_control_panel.home_alarm
         tap_action:
           action: more-info
         card_mod:
@@ -98,7 +98,7 @@ elements:
             }
             {% endif %}
       - type: state-label
-        entity: alarm_control_panel.verisure
+        entity: alarm_control_panel.home_alarm
         tap_action:
           action: more-info
 image: /local/images/floor_plan.png

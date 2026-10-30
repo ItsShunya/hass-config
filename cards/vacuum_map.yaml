@@ -2,13 +2,13 @@ type: custom:xiaomi-vacuum-map-card
 title: ''
 vacuum_platform: al-one/hass-xiaomi-miot
 # Anchor (&vacuum) reused below as *vacuum, so the entity is set only here.
-entity: &vacuum vacuum.dreame_r2205_ad79_robot_cleaner
+entity: &vacuum vacuum.robot_vacuum
 view_layout:
   grid-area: main
 
 # Map's camera source comes from Xiaomi Cloud Map Extractor.
 map_source:
-  camera: camera.dreamebot_d10_plus_live_map
+  camera: camera.robot_vacuum_map
   crop: # Zoomout
     top: -100
     bottom: -100
@@ -186,19 +186,19 @@ map_modes:
 tiles:
   - icon: mdi:brush
     label: Main brush time remaining (h)
-    entity: sensor.dreame_r2205_ad79_brush_left_time
+    entity: sensor.robot_vacuum_main_brush_left
   - icon: mdi:brush-variant
     label: Side brush time remaining (h)
-    entity: sensor.dreame_r2205_ad79_brush_left_time_2
+    entity: sensor.robot_vacuum_side_brush_left
   - icon: mdi:air-filter
     label: Filter time left (h)
-    entity: sensor.dreame_r2205_ad79_filter_left_time
+    entity: sensor.robot_vacuum_filter_left
   - icon: mdi:battery-50
     label: Battery (%)
-    entity: sensor.dreame_r2205_ad79_battery_level
+    entity: sensor.robot_vacuum_battery
   - icon: mdi:robot-vacuum
     label: Charging state
-    entity: sensor.dreame_r2205_ad79_charging_state
+    entity: sensor.robot_vacuum_charging_state
 
 # Custom CSS styling for this card. The map and the controls sit side by side
 # while there's room for both, else one above the other. Their widths scale

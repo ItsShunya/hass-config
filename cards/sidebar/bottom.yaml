@@ -69,7 +69,7 @@ cards:
   - type: markdown
     content: |
       {%- set weather = 'weather.forecast_home' -%}
-      {%- set inside = 'sensor.shunya_s_echo_dot_living_room_temperature' -%}
+      {%- set inside = 'sensor.kitchen_temperature' -%}
       {%- set icons = {
         'clear-night': 'night', 'cloudy': 'cloudy', 'fog': 'fog', 'hail': 'hail',
         'lightning': 'lightning', 'lightning-rainy': 'lightning-rainy',

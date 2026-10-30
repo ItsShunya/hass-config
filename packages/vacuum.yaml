@@ -33,7 +33,7 @@ script:
     sequence:
       - action: xiaomi_miot.call_action
         data:
-          entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+          entity_id: vacuum.robot_vacuum
           siid: 4
           aiid: 1
           params: >-
@@ -66,7 +66,7 @@ script:
     sequence:
       - action: xiaomi_miot.call_action
         data:
-          entity_id: vacuum.dreame_r2205_ad79_robot_cleaner
+          entity_id: vacuum.robot_vacuum
           siid: 4
           aiid: 1
           params: >-
@@ -86,15 +86,15 @@ automation:
     triggers:
       - trigger: numeric_state
         id: Main brush
-        entity_id: sensor.dreame_r2205_ad79_brush_left_time
+        entity_id: sensor.robot_vacuum_main_brush_left
         below: 10
       - trigger: numeric_state
         id: Side brush
-        entity_id: sensor.dreame_r2205_ad79_brush_left_time_2
+        entity_id: sensor.robot_vacuum_side_brush_left
         below: 10
       - trigger: numeric_state
         id: Filter
-        entity_id: sensor.dreame_r2205_ad79_filter_left_time
+        entity_id: sensor.robot_vacuum_filter_left
         below: 10
     actions:
       - action: persistent_notification.create

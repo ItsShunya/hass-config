@@ -53,17 +53,31 @@ Then:
 
 1. Deploy this repository into the container's `/config` directory, as described in [Deploying changes](#deploying-changes).
 2. Restart Home Assistant and complete the onboarding.
-3. Add the integrations that the dashboards rely on, under **Settings → Devices & services**:
+3. Add the integrations that the dashboards rely on, under **Settings → Devices & services**.
+4. Rename their entities to the IDs below (open the entity, then its settings, and change its **Entity ID**).
 
-   | Integration | Provides | Entities used by the dashboards |
+   The configuration names entities after what they do and where they are, not after the device behind them, so the same dashboards work with any device that does the job. Each integration names its entities after the device, so they have to be renamed once. Rename them before deploying, or the cards using them show an error until you do.
+
+   | Entity ID | What it is | Here provided by |
    |---|---|---|
-   | Xiaomi Miot | Robot vacuum | `vacuum.dreame_r2205_ad79_robot_cleaner`, `sensor.dreame_r2205_ad79_*` |
-   | Xiaomi Cloud Map Extractor | Live vacuum map | `camera.dreamebot_d10_plus_live_map` |
-   | Alexa Media Player | Echo Dot temperature sensors and media players | `sensor.shunya_s_echo_dot_bedroom_temperature`, `sensor.shunya_s_echo_dot_living_room_temperature`, `media_player.shunya_s_echo_dot_bedroom`, `media_player.shunya_s_echo_dot_living_room` |
-   | Verisure OWA | The alarm, and its temperature, humidity and air quality sensors | `alarm_control_panel.verisure`, `sensor.verisure_temperature`, `sensor.verisure_humidity`, `sensor.verisure_air_quality_status` |
-   | Meteorologisk institutt (Met.no) | Weather forecast | `weather.forecast_home` |
+   | `vacuum.robot_vacuum` | Robot vacuum | Xiaomi Miot (Dreame D10 Plus) |
+   | `sensor.robot_vacuum_main_brush_left` | Main brush life left (h) | Xiaomi Miot |
+   | `sensor.robot_vacuum_side_brush_left` | Side brush life left (h) | Xiaomi Miot |
+   | `sensor.robot_vacuum_filter_left` | Filter life left (h) | Xiaomi Miot |
+   | `sensor.robot_vacuum_battery` | Vacuum battery (%) | Xiaomi Miot |
+   | `sensor.robot_vacuum_charging_state` | Vacuum charging state | Xiaomi Miot |
+   | `camera.robot_vacuum_map` | Live vacuum map | Xiaomi Cloud Map Extractor |
+   | `sensor.bedroom_temperature` | Bedroom temperature | Alexa Media Player (Echo Dot "bedroom") |
+   | `sensor.kitchen_temperature` | Kitchen temperature, also shown as the inside temperature in the sidebar | Alexa Media Player (Echo Dot "living room") |
+   | `media_player.bedroom_speaker` | Bedroom speaker | Alexa Media Player (Echo Dot "bedroom") |
+   | `media_player.kitchen_speaker` | Kitchen speaker | Alexa Media Player (Echo Dot "living room") |
+   | `alarm_control_panel.home_alarm` | The alarm | Verisure OWA |
+   | `sensor.living_room_temperature` | Living room temperature | Verisure OWA |
+   | `sensor.living_room_humidity` | Living room humidity | Verisure OWA |
+   | `sensor.living_room_air_quality` | Living room air quality (`Good`, `Fair` or `Poor`) | Verisure OWA |
+   | `weather.forecast_home` | Weather forecast | Meteorologisk institutt (Met.no), already named this way |
 
-   If an entity gets a different ID, rename it in Home Assistant to the one above, or update the cards that use it. Verisure OWA names the alarm and its sensors after the installation's alias: renaming the installation's device to `Verisure`, and accepting to rename its entity IDs too, gives the IDs above.
+   With other devices, rename theirs instead. If you have no device for an entity, remove the cards that use it.
 
    Two more things come from this repository rather than an integration: `sensor.pollen`, from `packages/pollen.yaml`, and the presence sensors `binary_sensor.victor_presence` and `binary_sensor.jhuseidi_presence`, from `packages/presence.yaml`. Those need the people, `person.victor` and `person.jhuseidi`, and the Home Assistant app on their phones: see [docs/presence.md](./docs/presence.md).
 

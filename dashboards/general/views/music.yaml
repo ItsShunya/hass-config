@@ -12,6 +12,6 @@ cards:
       grid-area: main
     cards:
       - type: media-control
-        entity: media_player.shunya_s_echo_dot_living_room
+        entity: media_player.kitchen_speaker
       - type: media-control
-        entity: media_player.shunya_s_echo_dot_bedroom
+        entity: media_player.bedroom_speaker
