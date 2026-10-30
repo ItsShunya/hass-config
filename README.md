@@ -17,7 +17,7 @@ The repository mirrors the layout of Home Assistant's `/config` directory, so it
 - **`automations.yaml`**, **`scripts.yaml`**, **`scenes.yaml`**: Automations, reusable action sequences, and saved device states. They are empty for now; the UI editors write to these files, so changes made there must be copied back into the repository.
 - **`packages/`**: One file per feature (e.g. `vacuum.yaml`), holding everything that feature needs: automations, scripts, helpers, template sensors and so on. Each file is loaded as a [package](https://www.home-assistant.io/docs/configuration/packages/) named after it.
   - Use packages for configuration written by hand. Automations and scripts made in the UI editors go to `automations.yaml` and `scripts.yaml` instead, because the editors can't edit those defined in packages.
-- **`custom_templates/`**: Jinja macros shared by templates, imported with `{% from 'file.jinja' import macro %}` (see [Reusing templates](https://www.home-assistant.io/docs/configuration/templating/#reusing-templates)). After editing one, run the `homeassistant.reload_custom_templates` action or restart Home Assistant.
+- **`custom_templates/`**: Jinja macros used by templates (see [Reusing templates](https://www.home-assistant.io/docs/configuration/templating/#reusing-templates)). Restart Home Assistant after editing them.
 - **`dashboards/`**: Dashboards in YAML mode, registered under `lovelace.dashboards` in `configuration.yaml`.
   - Each subdirectory is one dashboard: a `dashboard.yaml` plus a `views/` folder with one file per view.
 - **`cards/`**: Reusable cards, included from views with `!include` so each card is defined once.
@@ -28,6 +28,8 @@ The repository mirrors the layout of Home Assistant's `/config` directory, so it
   - `styles/`: Our own stylesheets, also loaded under `lovelace.resources`. `dashboard.css` holds the sizes of the dashboard (see [Dashboards](#dashboards)).
 - **`custom_components/`**: Custom integrations not shipped with Home Assistant.
   - These and the cards in `www/plugins/` are vendored copies of third-party projects. [docs/vendored.md](./docs/vendored.md) lists their sources and versions, and how to update them.
+- **`Makefile`**: Deploy, check, restart and so on (see [Deploying changes](#deploying-changes)). Run `make` to list the commands.
+- **`flake.nix`**: Development shell with the tools the `Makefile` needs.
 - **`docs/`**: Extra documentation.
 - **`secrets.example.yaml`**: The secrets the configuration uses (`!secret`), with placeholder values. The real ones go in `secrets.yaml` on the server.
 - **`.HA_VERSION`**: The Home Assistant version this configuration was last tested with. It must match the container image tag being run.
@@ -55,11 +57,9 @@ Then:
 1. Deploy this repository into the container's `/config` directory, as described in [Deploying changes](#deploying-changes).
 2. Restart Home Assistant and complete the onboarding.
 3. Add the integrations that the dashboards rely on, under **Settings → Devices & services**.
-4. Rename their entities to the IDs below (open the entity, then its settings, and change its **Entity ID**).
+4. Rename their entities to the IDs below (open the entity, then its settings). The cards use these names instead of device-specific ones, so any device can fill each role.
 
-   The configuration names entities after what they do and where they are, not after the device behind them, so the same dashboards work with any device that does the job. Each integration names its entities after the device, so they have to be renamed once. Rename them before deploying, or the cards using them show an error until you do.
-
-   | Entity ID | What it is | Here provided by |
+   | Entity ID | What it is | Provided by |
    |---|---|---|
    | `vacuum.robot_vacuum` | Robot vacuum | Xiaomi Miot (Dreame D10 Plus) |
    | `sensor.robot_vacuum_main_brush_left` | Main brush life left (h) | Xiaomi Miot |
@@ -69,53 +69,55 @@ Then:
    | `sensor.robot_vacuum_charging_state` | Vacuum charging state | Xiaomi Miot |
    | `camera.robot_vacuum_map` | Live vacuum map | Xiaomi Cloud Map Extractor |
    | `sensor.bedroom_temperature` | Bedroom temperature | Alexa Media Player (Echo Dot "bedroom") |
-   | `sensor.kitchen_temperature` | Kitchen temperature, also shown as the inside temperature in the sidebar | Alexa Media Player (Echo Dot "living room") |
+   | `sensor.kitchen_temperature` | Kitchen temperature, also the sidebar's inside temperature | Alexa Media Player (Echo Dot "living room") |
    | `media_player.bedroom_speaker` | Bedroom speaker | Alexa Media Player (Echo Dot "bedroom") |
    | `media_player.kitchen_speaker` | Kitchen speaker | Alexa Media Player (Echo Dot "living room") |
    | `alarm_control_panel.home_alarm` | The alarm | Verisure OWA |
    | `sensor.living_room_temperature` | Living room temperature | Verisure OWA |
    | `sensor.living_room_humidity` | Living room humidity | Verisure OWA |
    | `sensor.living_room_air_quality` | Living room air quality (`Good`, `Fair` or `Poor`) | Verisure OWA |
-   | `weather.forecast_home` | Weather forecast | Meteorologisk institutt (Met.no), already named this way |
+   | `weather.forecast_home` | Weather forecast | Met.no (already has this name) |
 
-   With other devices, rename theirs instead. If you have no device for an entity, remove the cards that use it.
+   If you don't have a device for one of them, remove the cards that use it.
 
-   Two more things come from this repository rather than an integration: `sensor.pollen`, from `packages/pollen.yaml`, and `sensor.people_home`, who is home, from `packages/presence.yaml`. It needs no list of people: everyone with the Home Assistant app on their phone is found, see [docs/presence.md](./docs/presence.md).
+   `sensor.pollen` (`packages/pollen.yaml`) and who is home (`packages/presence.yaml`, see [docs/presence.md](./docs/presence.md)) come from this repository.
 
 ---
 
 ## Deploying changes
 
-Deploy from a clone with `git archive`. It sends only the files committed in git, so the server's `.storage/`, database, secrets and backups are never touched:
+The `Makefile` runs these commands on the server over ssh. First copy `local.mk.example` to `local.mk` and set your server in it:
+
+- `HA_SSH`: the server, e.g. `user@host`.
+- `HA_CONTAINER`: the container's name, `homeassistant` by default.
+- `HA_RESTART`: the restart command, `docker restart` by default.
+
+Deploy with:
 
 ```sh
-git archive HEAD | ssh shunya@nb250-10n docker exec -i homeassistant tar -x -C /config
+make deploy
 ```
 
-Do **not** copy the clone's directory into the container (for example with `docker cp ~/<repo>/. homeassistant:/config/`). That also copies any ignored files present in the clone, such as an old `.storage/` or database, and overwrites the server's.
+It uses `git archive`, which only sends committed files, so the server's `.storage/`, database, secrets and backups are never touched. Don't copy the clone's directory into the container instead (e.g. with `docker cp`): that also copies ignored files, like an old `.storage/` or database, over the server's.
 
 Things to keep in mind:
 
-- Only committed changes are deployed. Commit first, or replace `HEAD` with a branch name to deploy something else.
-- Files deleted from the repository are **not** deleted on the server. Remove them by hand, e.g. `ssh shunya@nb250-10n docker exec homeassistant rm -r /config/dashboards/old`.
-- Repository-only files (this README, `docs/`, `.github/`, the root license and git/editor settings) are left out of the archive by `.gitattributes`.
+- Only committed changes are deployed. Commit first, or deploy something else with `make deploy REF=<branch>`.
+- Files deleted from the repository are **not** deleted on the server. Remove them by hand, e.g. `make exec CMD="rm -r /config/dashboards/old"`.
+- Files only needed in the repository (this README, `docs/`, `.github/`, the `Makefile`, the flake, etc.) are left out by `.gitattributes`.
 
 Before applying a change, check that the configuration is valid:
 
 ```sh
-ssh shunya@nb250-10n docker exec homeassistant python -m homeassistant --script check_config -c /config
+make check
 ```
 
 Then apply it:
 
-- **`configuration.yaml` and custom integrations**: restart Home Assistant with `ssh -t shunya@nb250-10n sudo systemctl restart docker-homeassistant.service`, or from **Settings → System → Restart**.
+- **`configuration.yaml`, packages, `custom_templates/` and custom integrations**: restart Home Assistant with `make restart`, or from **Settings → System → Restart**.
 - **Dashboards and cards**: open the dashboard with `?disable_km` at the end of the URL, so its header is shown, then open the ⋮ menu, choose **Refresh**, and reload the browser. After editing `www/styles/dashboard.css`, also bump its `?v=` in `configuration.yaml` and restart Home Assistant, or browsers keep the old copy.
 
-In case you want to inspect something inside the container, you can open a shell in it with:
-
-```sh
-ssh -t shunya@nb250-10n docker exec -it homeassistant bash
-```
+`make secrets` edits `secrets.yaml` on the server, and `make shell` opens a shell in the container.
 
 ---
 
@@ -150,6 +152,12 @@ To add a view, create it in `views/` with the same `type`, `layout` and first th
 
 ---
 
+## Development tools
+
+`nix develop` opens a shell with everything the `Makefile` needs. Without Nix, you need `make`, `git`, `ssh`, `yamllint` and Python with PyYAML.
+
+---
+
 ## Continuous Integration (CI)
 
 The [Check configuration](./.github/workflows/check.yaml) workflow runs on every push and pull request:
@@ -158,12 +166,7 @@ The [Check configuration](./.github/workflows/check.yaml) workflow runs on every
 - **Referenced files** ([`check_references.py`](./.github/scripts/check_references.py)) follows `configuration.yaml` through every `!include`, dashboard `filename` and `/local/` URL, and fails if a target is missing or isn't valid YAML. Home Assistant's own check doesn't read YAML dashboards, so this is what catches a broken dashboard.
 - **check_config** runs Home Assistant's configuration check in the official container, at the version in `.HA_VERSION`, with `secrets.example.yaml` standing in for `secrets.yaml`.
 
-To run the first two locally before pushing (both need Python; `pip install yamllint pyyaml`):
-
-```sh
-yamllint --strict .
-python .github/scripts/check_references.py
-```
+Run the first two locally with `make lint`.
 
 Separately, the [Renovate](https://github.com/apps/renovate) app keeps an **Updates available** issue listing newer upstream releases of Home Assistant and the vendored components, and opens a pull request when the GitHub Actions used by these workflows have a new version. See [docs/vendored.md](./docs/vendored.md).
 

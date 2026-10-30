@@ -3,6 +3,10 @@
 /.editorconfig export-ignore
 /.gitattributes export-ignore
 /.github export-ignore
+/flake.lock export-ignore
+/flake.nix export-ignore
+/local.mk.example export-ignore
+/Makefile export-ignore
 /.gitignore export-ignore
 /.yamllint export-ignore
 /LICENSE.md export-ignore

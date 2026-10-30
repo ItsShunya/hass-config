@@ -1,0 +1,6 @@
+# Copy to local.mk and fill in. No quotes around values.
+HA_SSH = user@homeassistant.local
+
+# Optional:
+#HA_CONTAINER = homeassistant
+#HA_RESTART = sudo systemctl restart docker-homeassistant.service

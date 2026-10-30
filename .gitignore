@@ -23,3 +23,6 @@ __pycache__/
 
 # Keys & tokens.
 secrets.yaml
+
+# Makefile settings.
+local.mk

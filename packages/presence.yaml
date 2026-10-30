@@ -1,35 +1,18 @@
-# Who is home, shown in the dashboard's sidebar (cards/sidebar/bottom.yaml).
+# Who is home, shown in the sidebar (cards/sidebar/bottom.yaml).
 #
-# One sensor covers everyone: its state is how many people are home, and its
-# `people` attribute maps each person with a phone to whether they're home,
-# e.g. {'person.alice': true, 'person.bob': false}. Nobody is listed here:
-# custom_templates/presence.jinja finds the people and their phones' Wi-Fi
-# sensors, and decides who is home. The sidebar shows the first four people,
-# through the presence_1 to presence_4 slots at the end.
+# Someone is home if their phone is in the home zone or on the home Wi-Fi.
+# Nobody is listed here: custom_templates/presence.jinja finds the people and
+# their phones. See docs/presence.md.
 #
-# Someone is home while either:
-# - their person entity is home: their phone's app reports a location inside
-#   the home zone, or
-# - their phone is connected to the home Wi-Fi, as the app also reports.
-#
-# The Wi-Fi catches an arrival as soon as the phone joins the network, and
-# keeps someone home when their phone's location drifts out of the home zone
-# indoors. The Android app reports a change of network straight away. The
-# iPhone app only reports it when iOS lets it run (when the phone moves, when
-# the app is opened, or in the background now and then), so after leaving it
-# can take a few minutes to see the phone is off the home Wi-Fi.
-#
-# The names of the home Wi-Fi networks are kept in secrets.yaml, under
-# `home_wifi`, as a list (see secrets.example.yaml): this repository is
-# public, and a network's name can be looked up on a map. docs/presence.md
-# explains how to set up the people and their phones.
+# The Wi-Fi names are in secrets.yaml under `home_wifi`, since a network's
+# name can be looked up on a map.
 
 template:
   - variables:
       home_wifi: !secret home_wifi
     sensor:
-      # The macro returns JSON; from_json turns it back into an object, so
-      # the attribute is stored as one rather than as text.
+      # State: how many people are home.
+      # people: each person and whether they're home, e.g. {'person.alice': true}.
       - name: People home
         unique_id: people_home
         icon: mdi:home-account
@@ -41,13 +24,9 @@ template:
             {% from 'presence.jinja' import presence %}
             {{ presence(home_wifi) | from_json }}
 
-  # Four fixed slots for the sidebar's glance card, which needs a fixed list
-  # of entities: slot N is the Nth person in sensor.people_home, on while
-  # they're home, with their picture. A slot nobody fills is unavailable, and
-  # the card hides it. A fifth person is still counted above, but not shown.
-  #
-  # Each slot is its own block, so it can set its number in `variables`; the
-  # rest is the first slot's (&slot), merged in with <<.
+  # The glance card in the sidebar needs a fixed list of entities, so it shows
+  # these four slots. Slot N is the Nth person in sensor.people_home; empty
+  # slots are unavailable and hidden.
   - variables:
       slot: 1
     binary_sensor:

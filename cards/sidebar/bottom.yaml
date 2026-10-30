@@ -13,10 +13,8 @@ card_mod:
       --vertical-stack-card-gap: calc(8 * var(--dash-space-px));
     }
 cards:
-  # People: their profile pictures in circles, faded when they're away. The
-  # presence slots (packages/presence.yaml) carry the person's picture and
-  # count the home Wi-Fi as well as the phone's location; the slots nobody
-  # fills are unavailable, and hidden. The pictures don't react to taps.
+  # People: their pictures in circles, faded when they're away. The slots come
+  # from packages/presence.yaml; empty ones are hidden. Taps do nothing.
   - type: glance
     show_name: false
     show_state: false
