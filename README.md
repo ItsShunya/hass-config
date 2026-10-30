@@ -3,7 +3,7 @@
 
 This repository contains the YAML configuration for my [Home Assistant](https://www.home-assistant.io/) installation: the core configuration, dashboards, theme, and the custom integrations and cards it depends on. It is designed for personal use but can serve as a reference for others interested in setting up their HA servers.
 
-Feel free to use parts of this repository, but note that it is tailored to my specific devices and will require adjustments for your use case.
+Feel free to use parts of this repository, but note that it is tailored to my specific devices and will require adjustments for your use case. [docs/make-it-yours.md](./docs/make-it-yours.md) lists what to change.
 
 ---
 
