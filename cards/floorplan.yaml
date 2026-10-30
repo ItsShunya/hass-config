@@ -12,7 +12,7 @@ elements:
   - type: conditional
     conditions: []
     style:
-      left: 38%
+      left: 34%
       top: 55%
       --room: '"Bedroom"'
     elements:
@@ -26,8 +26,8 @@ elements:
   - type: conditional
     conditions: []
     style:
-      left: 58%
-      top: 70%
+      left: 60%
+      top: 71%
       --room: '"Living room"'
     elements:
       - type: icon
@@ -59,8 +59,8 @@ elements:
   - type: conditional
     conditions: []
     style:
-      left: 77%
-      top: 84%
+      left: 85%
+      top: 86%
       --room: '"Kitchen"'
     elements:
       - type: icon
@@ -75,8 +75,8 @@ elements:
   - type: conditional
     conditions: []
     style:
-      left: 80%
-      top: 20%
+      left: 89%
+      top: 17%
       --room: '"Alarm"'
       pointer-events: auto
       cursor: pointer
@@ -105,8 +105,10 @@ image: /local/images/floor_plan.png
 view_layout:
   grid-area: main
 # Fit the plan inside its grid area, with no card around it, against the menu
-# on its left. #root keeps the image's 3:2 shape (1536x1024), so the tags
-# stay on their rooms. On phones the plan just takes the full width.
+# on its left. #root keeps the image's shape (1166x948), so the tags stay on
+# their rooms. The image is cropped around the house to the shape of this
+# area on the tablet (see docs/dashboard-sizes.md), so there it fills the
+# area. On phones the plan just takes the full width.
 #
 # The tags are sized in cqw, hundredths of the plan's width, so they shrink
 # and grow with it and keep fitting their rooms. Below 10px they stop
@@ -127,7 +129,7 @@ card_mod:
       box-shadow: none;
     }
     #root {
-      width: min(100cqw, 150cqh);
+      width: min(100cqw, 123cqh);
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
       container-type: inline-size;
