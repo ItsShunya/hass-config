@@ -1,6 +1,13 @@
 # Who is home, shown in the dashboard's sidebar (cards/sidebar/bottom.yaml).
 #
-# Each person has a presence sensor, on (Home) while either:
+# One sensor covers everyone: its state is how many people are home, and its
+# `people` attribute maps each person with a phone to whether they're home,
+# e.g. {'person.alice': true, 'person.bob': false}. Nobody is listed here:
+# custom_templates/presence.jinja finds the people and their phones' Wi-Fi
+# sensors, and decides who is home. The sidebar shows the first four people,
+# through the presence_1 to presence_4 slots at the end.
+#
+# Someone is home while either:
 # - their person entity is home: their phone's app reports a location inside
 #   the home zone, or
 # - their phone is connected to the home Wi-Fi, as the app also reports.
@@ -20,21 +27,57 @@
 template:
   - variables:
       home_wifi: !secret home_wifi
-    binary_sensor:
-      # Android phone (Home Assistant Companion app).
-      - name: Victor presence
-        unique_id: victor_presence
-        device_class: presence
-        picture: "{{ state_attr('person.victor', 'entity_picture') }}"
+    sensor:
+      # The macro returns JSON; from_json turns it back into an object, so
+      # the attribute is stored as one rather than as text.
+      - name: People home
+        unique_id: people_home
+        icon: mdi:home-account
         state: >-
-          {{ is_state('person.victor', 'home')
-             or states('sensor.shunya_vivox300_wi_fi_connection') in home_wifi }}
+          {% from 'presence.jinja' import presence %}
+          {{ (presence(home_wifi) | from_json).values() | select | list | count }}
+        attributes:
+          people: >-
+            {% from 'presence.jinja' import presence %}
+            {{ presence(home_wifi) | from_json }}
 
-      # iPhone (Home Assistant app).
-      - name: Jhuseidi presence
-        unique_id: jhuseidi_presence
+  # Four fixed slots for the sidebar's glance card, which needs a fixed list
+  # of entities: slot N is the Nth person in sensor.people_home, on while
+  # they're home, with their picture. A slot nobody fills is unavailable, and
+  # the card hides it. A fifth person is still counted above, but not shown.
+  #
+  # Each slot is its own block, so it can set its number in `variables`; the
+  # rest is the first slot's (&slot), merged in with <<.
+  - variables:
+      slot: 1
+    binary_sensor:
+      - &slot
+        name: Presence 1
+        unique_id: presence_1
         device_class: presence
-        picture: "{{ state_attr('person.jhuseidi', 'entity_picture') }}"
+        availability: >-
+          {{ (state_attr('sensor.people_home', 'people') or {}) | count >= slot }}
+        picture: >-
+          {% set people = (state_attr('sensor.people_home', 'people') or {}) | list %}
+          {{ state_attr(people[slot - 1], 'entity_picture') if people | count >= slot else none }}
         state: >-
-          {{ is_state('person.jhuseidi', 'home')
-             or states('sensor.jhuseidi_ssid') in home_wifi }}
+          {% set homes = (state_attr('sensor.people_home', 'people') or {}).values() | list %}
+          {{ homes | count >= slot and homes[slot - 1] }}
+  - variables:
+      slot: 2
+    binary_sensor:
+      - <<: *slot
+        name: Presence 2
+        unique_id: presence_2
+  - variables:
+      slot: 3
+    binary_sensor:
+      - <<: *slot
+        name: Presence 3
+        unique_id: presence_3
+  - variables:
+      slot: 4
+    binary_sensor:
+      - <<: *slot
+        name: Presence 4
+        unique_id: presence_4

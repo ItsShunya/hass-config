@@ -1,0 +1,28 @@
+{#-
+  Who is home: a JSON object mapping each person with a phone to true while
+  they're home, false while they're away. Used by packages/presence.yaml.
+
+  People are found, not listed: everyone with a device tracker assigned under
+  Settings → People counts, in order of their entity ID. Someone is home while
+  their person entity is home (a tracker reports a location inside the home
+  zone), or while any of their phones is connected to one of the home_wifi
+  networks.
+
+  A phone's network is read from its Home Assistant app's Wi-Fi sensor, found
+  on the same device as its tracker by the IDs the app gives it:
+  sensor.<phone>_wi_fi_connection on Android, sensor.<phone>_ssid on iPhone.
+-#}
+{%- macro presence(home_wifi) -%}
+  {%- set ns = namespace(people={}) -%}
+  {%- for person in states.person if person.attributes.device_trackers -%}
+    {%- set networks = person.attributes.device_trackers
+        | map('device_id') | reject('none')
+        | map('device_entities') | sum(start=[])
+        | select('search', '_(wi_fi_connection|ssid)$')
+        | map('states') | list -%}
+    {%- set home = person.state == 'home'
+        or networks | select('in', home_wifi) | list | count > 0 -%}
+    {%- set ns.people = dict(ns.people, **{person.entity_id: home}) -%}
+  {%- endfor -%}
+  {{- ns.people | to_json -}}
+{%- endmacro -%}

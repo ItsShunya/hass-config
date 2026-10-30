@@ -17,6 +17,7 @@ The repository mirrors the layout of Home Assistant's `/config` directory, so it
 - **`automations.yaml`**, **`scripts.yaml`**, **`scenes.yaml`**: Automations, reusable action sequences, and saved device states. They are empty for now; the UI editors write to these files, so changes made there must be copied back into the repository.
 - **`packages/`**: One file per feature (e.g. `vacuum.yaml`), holding everything that feature needs: automations, scripts, helpers, template sensors and so on. Each file is loaded as a [package](https://www.home-assistant.io/docs/configuration/packages/) named after it.
   - Use packages for configuration written by hand. Automations and scripts made in the UI editors go to `automations.yaml` and `scripts.yaml` instead, because the editors can't edit those defined in packages.
+- **`custom_templates/`**: Jinja macros shared by templates, imported with `{% from 'file.jinja' import macro %}` (see [Reusing templates](https://www.home-assistant.io/docs/configuration/templating/#reusing-templates)). After editing one, run the `homeassistant.reload_custom_templates` action or restart Home Assistant.
 - **`dashboards/`**: Dashboards in YAML mode, registered under `lovelace.dashboards` in `configuration.yaml`.
   - Each subdirectory is one dashboard: a `dashboard.yaml` plus a `views/` folder with one file per view.
 - **`cards/`**: Reusable cards, included from views with `!include` so each card is defined once.
@@ -79,7 +80,7 @@ Then:
 
    With other devices, rename theirs instead. If you have no device for an entity, remove the cards that use it.
 
-   Two more things come from this repository rather than an integration: `sensor.pollen`, from `packages/pollen.yaml`, and the presence sensors `binary_sensor.victor_presence` and `binary_sensor.jhuseidi_presence`, from `packages/presence.yaml`. Those need the people, `person.victor` and `person.jhuseidi`, and the Home Assistant app on their phones: see [docs/presence.md](./docs/presence.md).
+   Two more things come from this repository rather than an integration: `sensor.pollen`, from `packages/pollen.yaml`, and `sensor.people_home`, who is home, from `packages/presence.yaml`. It needs no list of people: everyone with the Home Assistant app on their phone is found, see [docs/presence.md](./docs/presence.md).
 
 ---
 
