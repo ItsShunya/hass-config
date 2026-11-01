@@ -12,6 +12,7 @@ Each folder keeps its upstream `LICENSE`. This code isn't covered by the repo's 
 | `custom_components/securitas` | [guerrerotook/securitas-direct-new-api](https://github.com/guerrerotook/securitas-direct-new-api) | `v5.10.0` | Apache-2.0 |
 | `custom_components/xiaomi_miot` | [al-one/hass-xiaomi-miot](https://github.com/al-one/hass-xiaomi-miot) | commit [`8b3a31a`](https://github.com/al-one/hass-xiaomi-miot/commit/8b3a31a3a4b25525417b77c4834309f2a08d4439) (between `v1.1.2` and `v1.1.3`) | Apache-2.0 |
 | `custom_components/xiaomi_cloud_map_extractor` | [PiotrMachowski/Home-Assistant-custom-components-Xiaomi-Cloud-Map-Extractor](https://github.com/PiotrMachowski/Home-Assistant-custom-components-Xiaomi-Cloud-Map-Extractor) | `v3.0.0-alpha-10` | MIT |
+| `custom_components/spotifyplus` | [thlucas1/homeassistantcomponent_spotifyplus](https://github.com/thlucas1/homeassistantcomponent_spotifyplus) | `v1.0.225` | MIT |
 
 - **xiaomi_miot** comes from the main branch, not a release. Its `manifest.json` still says `1.1.2` because upstream hadn't bumped it yet.
 - **xiaomi_cloud_map_extractor**: the upstream `v3.0.0-alpha-10` tag has `v3.0.0-beta` in its `manifest.json`. I changed it to `v3.0.0-alpha-10`, and that's the only difference from upstream.
