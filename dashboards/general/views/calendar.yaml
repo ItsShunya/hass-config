@@ -17,3 +17,4 @@ cards:
       No calendar is set up yet. Add a calendar integration (for example
       Local Calendar, Google Calendar or CalDAV), then replace this card with
       a calendar card in `dashboards/general/views/calendar.yaml`.
+  - !include ../../../cards/spotify_button.yaml

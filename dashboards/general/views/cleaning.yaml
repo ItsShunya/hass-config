@@ -8,3 +8,4 @@ cards:
   - !include ../../../cards/sidebar/top.yaml
   - !include ../../../cards/sidebar/bottom.yaml
   - !include ../../../cards/vacuum_map.yaml
+  - !include ../../../cards/spotify_button.yaml

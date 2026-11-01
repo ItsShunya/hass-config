@@ -1,0 +1,40 @@
+# Floating Spotify button in the bottom right corner of every view. It opens
+# the Spotify Browser over the view (spotify_browser: in
+# dashboards/general/dashboard.yaml). Include it last in each view, so it's
+# drawn on top of the view's content.
+type: button
+icon: mdi:spotify
+show_name: false
+show_state: false
+tap_action:
+  action: navigate
+  navigation_path: "#spotify-browser"
+hold_action:
+  action: none
+view_layout:
+  grid-area: main
+  # The card itself is fixed to the screen, so this keeps its empty grid slot
+  # at the corner of main instead of stretched over the content, where it
+  # would catch the taps meant for it.
+  place-self: end
+# Selectors start with :host to outrank the button card's own rules, which
+# load later.
+card_mod:
+  style: |
+    :host > ha-card {
+      position: fixed;
+      right: calc(24 * var(--dash-space-px) + env(safe-area-inset-right));
+      bottom: calc(24 * var(--dash-space-px) + env(safe-area-inset-bottom));
+      z-index: 1;
+      width: calc(64 * var(--dash-px));
+      height: calc(64 * var(--dash-px));
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: #1db954;
+      box-shadow: 0 calc(4 * var(--dash-px)) calc(12 * var(--dash-px)) rgba(0, 0, 0, 0.35);
+    }
+    :host > ha-card ha-state-icon {
+      width: 60%;
+      color: #000;
+    }

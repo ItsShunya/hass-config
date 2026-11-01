@@ -8,6 +8,7 @@ Every view uses the same grid, defined in `layout.yaml` with [layout-card](https
 
 - On the left, the sidebar (`cards/sidebar/`). `top.yaml` has the clock, the date and a menu with one item per view. `bottom.yaml` has the people's pictures (faded when they're away, see [presence.md](presence.md)), pollen, the weather and the inside temperature. `background.yaml` is the panel behind them.
 - On the right, the view's own content.
+- In the bottom right corner, a floating Spotify button (`cards/spotify_button.yaml`). It opens the [Spotify Browser](https://github.com/BWilky/HA-Spotify-Browser) over the view by navigating to `#spotify-browser`.
 
 Cards pick their spot with `view_layout: grid-area:` set to `sidebar`, `top`, `bottom` or `main`. On phones (800px wide or less) it all stacks in one column: top of the sidebar, content, bottom of the sidebar.
 
@@ -16,9 +17,8 @@ Cards pick their spot with `view_layout: grid-area:` set to `sidebar`, `top`, `b
 - **Home** (`views/overview.yaml`): the floor plan (`cards/floorplan.yaml`) with a tag on each room for its temperature, plus humidity and air quality in the living room, and one for the alarm. The tags are in `cards/floorplan_elements.yaml`.
 - **Cleaning** (`views/cleaning.yaml`): the vacuum map (`cards/vacuum_map.yaml`). Start, pause or dock the vacuum, or clean a zone or a room.
 - **Calendar** (`views/calendar.yaml`): a placeholder until I set up a calendar integration.
-- **Music** (`views/music.yaml`): media controls for the Echo Dots. Its menu item also opens the [Spotify Browser](https://github.com/BWilky/HA-Spotify-Browser) over the view by navigating to `#spotify-browser`.
 
-To add a view, copy one of them (they all start with the same `type`, `layout` and three sidebar cards), include it in `dashboard.yaml` and add a menu item for it in `cards/sidebar/top.yaml`.
+To add a view, copy one of them (they all start with the same `type`, `layout` and three sidebar cards, and end with the Spotify button), include it in `dashboard.yaml` and add a menu item for it in `cards/sidebar/top.yaml`.
 
 ## Sizing
 

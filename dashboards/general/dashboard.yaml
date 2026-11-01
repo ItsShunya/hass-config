@@ -5,7 +5,7 @@ kiosk_mode:
   hide_header: true
   hide_sidebar: true
 # Spotify Browser: a full-screen overlay that any view can open by navigating
-# to #spotify-browser, like the Music menu item in cards/sidebar/top.yaml.
+# to #spotify-browser, like the floating button in cards/spotify_button.yaml.
 # Storage is in packages/spotify.yaml.
 spotify_browser:
   entity: media_player.spotifyplus_shunya
@@ -17,4 +17,3 @@ views:
   - !include views/overview.yaml
   - !include views/cleaning.yaml
   - !include views/calendar.yaml
-  - !include views/music.yaml

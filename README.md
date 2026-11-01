@@ -46,8 +46,7 @@ Home Assistant runs in Docker with the official image, at the version in `.HA_VE
 | `camera.robot_vacuum_map` | Live vacuum map | Xiaomi Cloud Map Extractor |
 | `sensor.bedroom_temperature` | Bedroom temperature | Alexa Media Player (Echo Dot "bedroom") |
 | `sensor.kitchen_temperature` | Kitchen temperature, also the sidebar's inside temperature | Alexa Media Player (Echo Dot "living room") |
-| `media_player.bedroom_speaker` | Bedroom speaker | Alexa Media Player (Echo Dot "bedroom") |
-| `media_player.kitchen_speaker` | Kitchen speaker | Alexa Media Player (Echo Dot "living room") |
+| `media_player.spotifyplus_shunya` | Spotify account, for the Spotify button | SpotifyPlus |
 | `alarm_control_panel.home_alarm` | Alarm | Verisure OWA |
 | `sensor.living_room_temperature` | Living room temperature | Verisure OWA |
 | `sensor.living_room_humidity` | Living room humidity | Verisure OWA |
@@ -76,7 +75,7 @@ To upgrade Home Assistant, change the image tag on the server and `.HA_VERSION` 
 
 ## Dashboard
 
-There's one dashboard, **General**, made for a 1280x800 tablet on the wall. Every view shares a sidebar with a clock, a menu, who's home, pollen and the temperature. The views are Home (floor plan), Cleaning (vacuum map), Calendar and Music. [docs/dashboard.md](docs/dashboard.md) explains how it's laid out and how it scales to other screens.
+There's one dashboard, **General**, made for a 1280x800 tablet on the wall. Every view shares a sidebar with a clock, a menu, who's home, pollen and the temperature. The views are Home (floor plan), Cleaning (vacuum map) and Calendar, and a floating button opens a Spotify browser over any of them. [docs/dashboard.md](docs/dashboard.md) explains how it's laid out and how it scales to other screens.
 
 ## Development
 
