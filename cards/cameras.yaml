@@ -1,0 +1,46 @@
+# The alarm's cameras: two on top and one centered below. They don't stream,
+# they take pictures. Each card shows the last one, the button in its corner
+# takes a new one and tapping it opens it full size (the camera's
+# *_full_image twin, which the card finds on its own).
+#
+# The camera card comes with the Verisure integration, which loads it itself,
+# so it isn't in the lovelace resources in configuration.yaml.
+type: custom:layout-card
+layout_type: custom:grid-layout
+view_layout:
+  grid-area: main
+layout:
+  # Columns in drawn pixels (docs/dashboard.md), so the 4:3 pictures fit the
+  # screen's height as well as its width.
+  grid-template-columns: repeat(4, minmax(0, calc(230 * var(--dash-px))))
+  grid-template-areas: >-
+    "living_room living_room entryway entryway"
+    ". corridor corridor ."
+  place-content: start center
+  margin: 0
+  padding: 0
+  mediaquery:
+    # Phones: one column.
+    "(max-width: 800px)":
+      grid-template-columns: 100%
+      grid-template-areas: >-
+        "living_room"
+        "entryway"
+        "corridor"
+# The names override the Verisure device names.
+cards:
+  - type: custom:verisure-owa-camera-card
+    entity: camera.living_room
+    name: Living room
+    view_layout:
+      grid-area: living_room
+  - type: custom:verisure-owa-camera-card
+    entity: camera.entryway
+    name: Entryway
+    view_layout:
+      grid-area: entryway
+  - type: custom:verisure-owa-camera-card
+    entity: camera.corridor
+    name: Corridor
+    view_layout:
+      grid-area: corridor

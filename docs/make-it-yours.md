@@ -11,6 +11,7 @@ Most of this works in any home. Start with the [setup in the README](../README.m
 Rename your entities to match the [table in the README](../README.md#setup). If your rooms or devices are different, edit the cards that use them:
 
 - `cards/floorplan_elements.yaml`: room readings and the alarm.
+- `cards/cameras.yaml`: the alarm's cameras.
 - `cards/sidebar/bottom.yaml`: inside temperature and weather.
 - `dashboards/general/dashboard.yaml`: the Spotify account, under `spotify_browser:`.
 - `cards/vacuum_map.yaml` and `packages/vacuum.yaml`: the vacuum.
@@ -42,7 +43,7 @@ The dashboard is made for a 1280x800 tablet. For other screens, see [dashboard.m
 | Vacuum | The Cleaning view, `packages/vacuum.yaml`, `cards/vacuum_map.yaml`, `custom_components/xiaomi_*`, and `www/plugins/xiaomi-vacuum-map-card` with its line in `configuration.yaml` |
 | Echo Dots | `custom_components/alexa_media`, and their temperatures in the floor plan and sidebar |
 | Spotify | `spotify_browser:` in `dashboard.yaml`, `cards/spotify_button.yaml` and its line in each view, `packages/spotify.yaml`, `custom_components/spotifyplus`, and `www/plugins/spotify-browser` with its line in `configuration.yaml` |
-| Alarm | `custom_components/securitas`, and the Alarm and Living room tags in `cards/floorplan_elements.yaml` |
+| Alarm | `custom_components/securitas`, the Alarm and Living room tags in `cards/floorplan_elements.yaml`, and the Security view with `cards/cameras.yaml` |
 | Presence | `packages/presence.yaml`, `custom_templates/presence.jinja` and the glance card in `cards/sidebar/bottom.yaml` |
 | Pollen | `packages/pollen.yaml`, and its row and ring styling in `cards/sidebar/bottom.yaml` |
 

@@ -51,6 +51,9 @@ Home Assistant runs in Docker with the official image, at the version in `.HA_VE
 | `sensor.living_room_temperature` | Living room temperature | Verisure OWA |
 | `sensor.living_room_humidity` | Living room humidity | Verisure OWA |
 | `sensor.living_room_air_quality` | Living room air quality (`Good`, `Fair` or `Poor`) | Verisure OWA |
+| `camera.living_room` | Living room camera | Verisure OWA |
+| `camera.entryway` | Entryway camera | Verisure OWA |
+| `camera.corridor` | Corridor camera | Verisure OWA |
 | `weather.forecast_home` | Weather forecast | Met.no (already named this) |
 
 If you don't have one of these, remove the cards that use it. The pollen and presence sensors come from the packages; presence needs some setup on each phone, see [docs/presence.md](docs/presence.md).
@@ -75,7 +78,7 @@ To upgrade Home Assistant, change the image tag on the server and `.HA_VERSION` 
 
 ## Dashboard
 
-There's one dashboard, **General**, made for a 1280x800 tablet on the wall. Every view shares a sidebar with a clock, a menu, who's home, pollen and the temperature. The views are Home (floor plan), Cleaning (vacuum map) and Calendar, and a floating button opens a Spotify browser over any of them. [docs/dashboard.md](docs/dashboard.md) explains how it's laid out and how it scales to other screens.
+There's one dashboard, **General**, made for a 1280x800 tablet on the wall. Every view shares a sidebar with a clock, a menu, who's home, pollen and the temperature. The views are Home (floor plan), Cleaning (vacuum map), Calendar and Security (the alarm's cameras), and a floating button opens a Spotify browser over any of them. [docs/dashboard.md](docs/dashboard.md) explains how it's laid out and how it scales to other screens.
 
 ## Development
 

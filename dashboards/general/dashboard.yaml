@@ -17,3 +17,4 @@ views:
   - !include views/overview.yaml
   - !include views/cleaning.yaml
   - !include views/calendar.yaml
+  - !include views/security.yaml

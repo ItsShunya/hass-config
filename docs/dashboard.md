@@ -17,6 +17,7 @@ Cards pick their spot with `view_layout: grid-area:` set to `sidebar`, `top`, `b
 - **Home** (`views/overview.yaml`): the floor plan (`cards/floorplan.yaml`) with a tag on each room for its temperature, plus humidity and air quality in the living room, and one for the alarm. The tags are in `cards/floorplan_elements.yaml`.
 - **Cleaning** (`views/cleaning.yaml`): the vacuum map (`cards/vacuum_map.yaml`). Start, pause or dock the vacuum, or clean a zone or a room.
 - **Calendar** (`views/calendar.yaml`): a placeholder until I set up a calendar integration.
+- **Security** (`views/security.yaml`): the alarm's cameras (`cards/cameras.yaml`). They take pictures instead of streaming: each card shows the last one, the button in its corner takes a new one, and tapping it opens it full size.
 
 To add a view, copy one of them (they all start with the same `type`, `layout` and three sidebar cards, and end with the Spotify button), include it in `dashboard.yaml` and add a menu item for it in `cards/sidebar/top.yaml`.
 
@@ -50,7 +51,7 @@ A few catches:
 
 - Only the visible area counts. Android's status bar (about 24 CSS pixels) and navigation bar (about 48) take part of it, unless the app runs fullscreen.
 - Phones keep the drawn sizes, since they scroll anyway. A tablet in portrait is usually narrow enough to count as a phone, so keep it in landscape.
-- Some things don't scale: layout-card's 4px margin around each card, the insides of third-party cards (the vacuum map's buttons and tiles) and Home Assistant's media cards. The floor plan fits itself to the space it gets.
+- Some things don't scale: layout-card's 4px margin around each card, the insides of third-party cards (the vacuum map's buttons and tiles, the cameras' names and buttons) and Home Assistant's media cards. The floor plan fits itself to the space it gets.
 
 ### Settings
 

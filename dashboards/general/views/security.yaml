@@ -1,0 +1,11 @@
+title: Security
+icon: mdi:cctv
+path: security
+type: custom:grid-layout
+layout: !include ../layout.yaml
+cards:
+  - !include ../../../cards/sidebar/background.yaml
+  - !include ../../../cards/sidebar/top.yaml
+  - !include ../../../cards/sidebar/bottom.yaml
+  - !include ../../../cards/cameras.yaml
+  - !include ../../../cards/spotify_button.yaml

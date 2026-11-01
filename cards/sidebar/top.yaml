@@ -99,3 +99,10 @@ cards:
       action: navigate
       navigation_path: /lovelace-general/calendar
     card_mod: *item
+  - type: heading
+    heading: Security
+    icon: mdi:cctv
+    tap_action:
+      action: navigate
+      navigation_path: /lovelace-general/security
+    card_mod: *item
