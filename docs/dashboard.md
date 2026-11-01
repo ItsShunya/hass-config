@@ -16,7 +16,7 @@ Cards pick their spot with `view_layout: grid-area:` set to `sidebar`, `top`, `b
 - **Home** (`views/overview.yaml`): the floor plan (`cards/floorplan.yaml`) with a tag on each room for its temperature, plus humidity and air quality in the living room, and one for the alarm. The tags are in `cards/floorplan_elements.yaml`.
 - **Cleaning** (`views/cleaning.yaml`): the vacuum map (`cards/vacuum_map.yaml`). Start, pause or dock the vacuum, or clean a zone or a room.
 - **Calendar** (`views/calendar.yaml`): a placeholder until I set up a calendar integration.
-- **Music** (`views/music.yaml`): media controls for the Echo Dots.
+- **Music** (`views/music.yaml`): media controls for the Echo Dots. Its menu item also opens the [Spotify Browser](https://github.com/BWilky/HA-Spotify-Browser) over the view by navigating to `#spotify-browser`.
 
 To add a view, copy one of them (they all start with the same `type`, `layout` and three sidebar cards), include it in `dashboard.yaml` and add a menu item for it in `cards/sidebar/top.yaml`.
 

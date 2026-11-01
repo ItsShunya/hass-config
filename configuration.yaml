@@ -58,6 +58,9 @@ lovelace:
     # renovate: repo=thomasloven/lovelace-layout-card
     - url: /local/plugins/layout-card/layout-card.js?v=2.4.7
       type: module
+    # renovate: repo=BWilky/HA-Spotify-Browser
+    - url: /local/plugins/spotify-browser/spotify-browser.js?v=0.4.0
+      type: module
     # Our own: the dashboard's sizes (docs/dashboard.md).
     - url: /local/styles/dashboard.css?v=1
       type: css

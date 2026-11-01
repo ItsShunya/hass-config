@@ -46,7 +46,8 @@ cards:
           }
 
   # Menu: one heading card per view. The current one is bold on a pill
-  # background (its link ends in card-mod's panel.viewUrlPath).
+  # background (its link, minus any #hash, ends in card-mod's
+  # panel.viewUrlPath).
   - type: heading
     heading: Home
     icon: mdi:floor-plan
@@ -57,7 +58,7 @@ cards:
     # start with ha-card to outrank the card's own rules, which load later.
     card_mod: &item
       style: |
-        {% set active = config.tap_action.navigation_path.endswith('/' ~ panel.viewUrlPath) %}
+        {% set active = config.tap_action.navigation_path.split('#')[0].endswith('/' ~ panel.viewUrlPath) %}
         ha-card {
           --ha-heading-card-title-font-size: calc(22 * var(--dash-px));
           --ha-heading-card-title-font-weight: {{ 600 if active else 300 }};
@@ -99,10 +100,12 @@ cards:
       action: navigate
       navigation_path: /lovelace-general/calendar
     card_mod: *item
+  # Also opens the Spotify Browser over the view (spotify_browser: in
+  # dashboards/general/dashboard.yaml).
   - type: heading
     heading: Music
     icon: mdi:play-circle-outline
     tap_action:
       action: navigate
-      navigation_path: /lovelace-general/music
+      navigation_path: /lovelace-general/music#spotify-browser
     card_mod: *item

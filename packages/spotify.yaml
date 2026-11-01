@@ -1,0 +1,42 @@
+# Storage for the Spotify Browser card (www/plugins/spotify-browser), which
+# runs on top of the SpotifyPlus integration. The card keeps its pinned home
+# items and device settings in the sensor's `data` attribute.
+# https://github.com/BWilky/HA-Spotify-Browser#4-storage-pins-and-device-settings
+#
+# The names are the card's defaults, so its `storage:` config only needs the
+# script (spotify_browser: in dashboards/general/dashboard.yaml).
+
+template:
+  # Admins save by firing the event straight from the browser. Trigger-based
+  # sensors restore their attributes on restart, so the pins survive it.
+  - triggers:
+      - trigger: event
+        event_type: spotify_browser_store_data
+    sensor:
+      - name: Spotify Browser Data
+        unique_id: spotify_browser_data
+        icon: mdi:spotify
+        state: "{{ now().timestamp() | int }}"
+        attributes:
+          data: "{{ trigger.event.data.data }}"
+
+script:
+  # Non-admin users can't fire events, so the card calls this to do it for
+  # them. Queued so quick back-to-back saves are all kept, in order.
+  spotify_browser_store:
+    alias: Spotify Browser Store
+    description: Save the Spotify Browser card's data to sensor.spotify_browser_data.
+    icon: mdi:spotify
+    mode: queued
+    fields:
+      data:
+        description: Full data object to persist
+        required: true
+        selector:
+          object:
+    sequence:
+      - condition: template
+        value_template: "{{ data is mapping }}"
+      - event: spotify_browser_store_data
+        event_data:
+          data: "{{ data }}"
