@@ -9,6 +9,8 @@ type: custom:layout-card
 layout_type: custom:grid-layout
 view_layout:
   grid-area: main
+  # Centered top to bottom in main (full height of the screen).
+  place-self: center stretch
 layout:
   # Columns in drawn pixels (docs/dashboard.md), so the 4:3 pictures fit the
   # screen's height as well as its width.
