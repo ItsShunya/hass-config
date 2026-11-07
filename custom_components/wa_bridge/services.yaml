@@ -1,0 +1,233 @@
+# Service definitions for the WhatsApp Integration
+
+send_message:
+  name: Send message
+  description: Send a WhatsApp message to a specific number, group name, or group ID.
+  fields:
+    number:
+      name: Number
+      description: The phone number to send the message to (with country code, e.g., 551199999999). Required if group/group_id is not specified.
+      required: false
+      selector:
+        text:
+    group:
+      name: Group Name
+      description: The exact name of the group to send the message to. Required if number/group_id is not specified.
+      required: false
+      selector:
+        text:
+    group_id:
+      name: Group ID
+      description: The ID of the group to send the message to (e.g., 120363012345678901). More stable than group name. Use the get_groups service to retrieve group IDs.
+      required: false
+      selector:
+        text:
+    message:
+      name: Message
+      description: The content of the message.
+      required: true
+      selector:
+        text:
+    mentions:
+      name: Mentions
+      description: Phone numbers to mention. Country code, no +. @c.us is optional. Each number is appended to the message when it is not already written as @number.
+      required: false
+      selector:
+        text:
+          multiple: true
+    media_url:
+      name: Media URL
+      description: URL of the media file to send (optional).
+      required: false
+      selector:
+        text:
+    media_path:
+      name: Media Path
+      description: Local path to the media file to send (optional).
+      required: false
+      selector:
+        text:
+
+
+send_broadcast:
+  name: Send Broadcast
+  description: Send a message to multiple targets (numbers or groups).
+  fields:
+    message:
+      name: Message
+      description: The content of the message.
+      required: true
+      selector:
+        text:
+    media_url:
+      name: Media URL
+      description: URL of the media file to send (optional).
+      required: false
+      selector:
+        text:
+    media_path:
+      name: Media Path
+      description: Local path to the media file to send (optional).
+      required: false
+      selector:
+        text:
+    targets:
+      name: Targets
+      description: A list of phone numbers or group names.
+      required: true
+      selector:
+        object:
+
+
+send_poll:
+  name: Send Poll
+  description: Send a poll to a specific number, group name, or group ID.
+  fields:
+    number:
+      name: Number
+      description: The phone number to send the poll to.
+      required: false
+      selector:
+        text:
+    group:
+      name: Group Name
+      description: The exact name of the group to send the poll to.
+      required: false
+      selector:
+        text:
+    group_id:
+      name: Group ID
+      description: The ID of the group to send the poll to (e.g., 120363012345678901). More stable than group name. Use the get_groups service to retrieve group IDs.
+      required: false
+      selector:
+        text:
+    message:
+      name: Poll Question
+      description: The question for the poll.
+      required: true
+      selector:
+        text:
+    options:
+      name: Options
+      description: List of options for the poll.
+      required: true
+      selector:
+        object:
+    allow_multiple_answers:
+      name: Allow Multiple Answers
+      description: Whether to allow multiple answers.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+
+send_event:
+  name: Send Event
+  description: Send a WhatsApp calendar event to a specific number, group name, or group ID.
+  fields:
+    number:
+      name: Number
+      description: The phone number to send the event to (with country code, e.g., 551199999999). Required if group/group_id is not specified.
+      required: false
+      selector:
+        text:
+    group:
+      name: Group Name
+      description: The exact name of the group to send the event to. Required if number/group_id is not specified.
+      required: false
+      selector:
+        text:
+    group_id:
+      name: Group ID
+      description: The ID of the group to send the event to (e.g., 120363012345678901). More stable than group name. Use the get_groups service to retrieve group IDs.
+      required: false
+      selector:
+        text:
+    name:
+      name: Event Name
+      description: The name/title of the event.
+      required: true
+      selector:
+        text:
+    description:
+      name: Description
+      description: A description for the event (optional).
+      required: false
+      selector:
+        text:
+    location:
+      name: Location
+      description: The location of the event (optional).
+      required: false
+      selector:
+        text:
+    start_time:
+      name: Start Time
+      description: The start time of the event in ISO 8601 format (e.g., 2025-01-15T14:00:00).
+      required: true
+      selector:
+        text:
+    end_time:
+      name: End Time
+      description: The end time of the event in ISO 8601 format (optional).
+      required: false
+      selector:
+        text:
+    call_type:
+      name: Call Type
+      description: Type of WhatsApp call link to include. Valid values are video, voice, or none (optional).
+      required: false
+      selector:
+        select:
+          options:
+            - "video"
+            - "voice"
+            - "none"
+
+
+get_groups:
+  name: Get Groups
+  description: Retrieve all WhatsApp groups with their IDs and names. Results are fired as a whatsapp_groups_received event.
+
+
+set_group_subject:
+  name: Set Group Subject
+  description: Update the name (subject) of a WhatsApp group. Requires admin permissions in the group.
+  fields:
+    group_id:
+      name: Group ID
+      description: The ID of the group to update (e.g., 120363012345678901). Use the get_groups service to retrieve group IDs.
+      required: true
+      selector:
+        text:
+    subject:
+      name: Subject
+      description: The new name (subject) for the group.
+      required: true
+      selector:
+        text:
+
+
+set_group_picture:
+  name: Set Group Picture
+  description: Update the picture of a WhatsApp group. Requires admin permissions in the group.
+  fields:
+    group_id:
+      name: Group ID
+      description: The ID of the group to update (e.g., 120363012345678901). Use the get_groups service to retrieve group IDs.
+      required: true
+      selector:
+        text:
+    media_url:
+      name: Media URL
+      description: URL of the image to set as the group picture.
+      required: false
+      selector:
+        text:
+    media_path:
+      name: Media Path
+      description: Local path to the image to set as the group picture.
+      required: false
+      selector:
+        text:

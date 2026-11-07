@@ -1,0 +1,85 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to WhatsApp Bridge",
+        "description": "Enter the WebSocket URL of the WhatsApp Bridge and the API token it was started with.",
+        "data": {
+          "host": "Bridge WebSocket URL",
+          "token": "API token"
+        },
+        "data_description": {
+          "host": "WebSocket URL of the Node.js bridge, for example ws://localhost:3000.",
+          "token": "Shared secret configured for the bridge (api_token add-on option or API_TOKEN environment variable)."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate with WhatsApp Bridge",
+        "description": "Enter the API token configured for the bridge to reconnect. The token may have changed, or it may be missing.",
+        "data": {
+          "host": "Bridge WebSocket URL",
+          "token": "API token"
+        },
+        "data_description": {
+          "host": "WebSocket URL of the Node.js bridge, for example ws://localhost:3000.",
+          "token": "Shared secret configured for the bridge (api_token add-on option or API_TOKEN environment variable)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the bridge. Make sure the Node.js service is running.",
+      "invalid_auth": "The bridge rejected the API token. Check the token configured for the bridge.",
+      "not_ready": "WhatsApp is not ready yet. Please ensure you have scanned the QR code.",
+      "initializing": "WhatsApp client is initializing. Please try again in a few seconds.",
+      "no_qr_received": "No QR code received. If you are already logged in, check the logs.",
+      "unknown": "Unexpected error occurred. Please check the Home Assistant logs."
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "reauth_successful": "Re-authentication was successful",
+      "reauth_failed": "Re-authentication failed because the configuration entry could not be found."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "WhatsApp notifications",
+        "description": "Saved chats become notify entities for notify.send_message.\n\nYou can also call notify.whatsapp with a target when the chat is not saved here.\n\n{targets}",
+        "menu_options": {
+          "add_target": "Add notification target",
+          "remove_target": "Remove notification target"
+        }
+      },
+      "add_target": {
+        "title": "Add notification target",
+        "description": "Enter a name and one destination. This creates a notify entity for that chat.",
+        "data": {
+          "name": "Name",
+          "number": "Phone number",
+          "group": "Group name",
+          "group_id": "Group ID"
+        },
+        "data_description": {
+          "name": "Shown on the notify entity, for example Family.",
+          "number": "Country code plus number, without +. Leave empty when using a group.",
+          "group": "Exact WhatsApp group name. Leave empty when using a number or group ID.",
+          "group_id": "Stable group ID from get_groups. Leave empty when using a number or group name."
+        }
+      },
+      "remove_target": {
+        "title": "Remove notification target",
+        "description": "The notify entity for this chat will be removed.",
+        "data": {
+          "id": "Target"
+        }
+      }
+    },
+    "error": {
+      "name_required": "Name is required.",
+      "name_exists": "A notification target with this name already exists.",
+      "invalid_number": "Enter the phone number with country code, without +.",
+      "missing_destination": "Enter a phone number, a group name, or a group ID.",
+      "multiple_destinations": "Enter only one destination: phone number, group name, or group ID."
+    }
+  }
+}
