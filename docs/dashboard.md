@@ -16,7 +16,7 @@ Cards pick their spot with `view_layout: grid-area:` set to `sidebar`, `top`, `b
 
 - **Home** (`views/overview.yaml`): the floor plan (`cards/floorplan.yaml`) with a tag on each room for its temperature, plus humidity and air quality in the living room, and one for the alarm. The tags are in `cards/floorplan_elements.yaml`.
 - **Cleaning** (`views/cleaning.yaml`): the vacuum map (`cards/vacuum_map.yaml`). Start, pause or dock the vacuum, or clean a zone or a room.
-- **Calendar** (`views/calendar.yaml`): a placeholder until I set up a calendar integration.
+- **Calendar** (`views/calendar.yaml`): the Google calendars in [Aurora Calendar](https://github.com/davidlop28/ha-aurora-calendar)'s card (`cards/calendar.yaml`).
 - **Security** (`views/security.yaml`): the alarm's cameras (`cards/cameras.yaml`). They take pictures instead of streaming: each card shows the last one, the button in its corner takes a new one, and tapping it opens it full size.
 
 To add a view, copy one of them (they all start with the same `type`, `layout` and three sidebar cards, and end with the Spotify button), include it in `dashboard.yaml` and add a menu item for it in `cards/sidebar/top.yaml`.

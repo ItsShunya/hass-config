@@ -61,6 +61,9 @@ lovelace:
     # renovate: repo=BWilky/HA-Spotify-Browser
     - url: /local/plugins/spotify-browser/spotify-browser.js?v=0.4.0
       type: module
+    # Served by the aurora_calendar integration. Keep ?v= at its version.
+    - url: /aurora_calendar_static/aurora-calendar-card.js?v=0.2.0
+      type: module
     # Our own: the dashboard's sizes (docs/dashboard.md).
     - url: /local/styles/dashboard.css?v=1
       type: css

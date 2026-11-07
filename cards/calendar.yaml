@@ -1,0 +1,6 @@
+type: custom:aurora-calendar-card
+integration: aurora_calendar
+view_layout:
+  grid-area: main
+week_start: monday
+time_format: 24h
