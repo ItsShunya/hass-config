@@ -1,0 +1,595 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aurora Calendar",
+        "description": "Gib deiner Aurora Calendar-Instanz einen Namen. Im nächsten Schritt wählst du die Kalender aus.",
+        "data": {
+          "name": "Name der Integration"
+        }
+      },
+      "calendars": {
+        "title": "Wähle deine Kalender",
+        "description": "Wähle die Kalender-Entitäten aus, die du anzeigen möchtest, sowie optional eine Wetter-Entität für die Vorhersage.",
+        "data": {
+          "calendar_entities": "Kalender-Entitäten",
+          "weather_entity": "Wetter-Entität (optional)"
+        }
+      },
+      "details": {
+        "title": "Kalender & Personen",
+        "description": "Lege Anzeigename, Farbe und verknüpfte Person für jeden Kalender fest.",
+        "data": {
+          "calendar_entity": "Kalender-Entität",
+          "display_name": "Anzeigename",
+          "color_mode": "Farbquelle",
+          "override_color": "Eigene Farbe",
+          "person_entity_id": "Home Assistant-Person (optional)"
+        },
+        "data_description": {
+          "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+        },
+        "sections": {
+          "calendar_1": {
+            "name": "Kalender 1",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_2": {
+            "name": "Kalender 2",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_3": {
+            "name": "Kalender 3",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_4": {
+            "name": "Kalender 4",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_5": {
+            "name": "Kalender 5",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_6": {
+            "name": "Kalender 6",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_7": {
+            "name": "Kalender 7",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_8": {
+            "name": "Kalender 8",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_9": {
+            "name": "Kalender 9",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_10": {
+            "name": "Kalender 10",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_11": {
+            "name": "Kalender 11",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_12": {
+            "name": "Kalender 12",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_13": {
+            "name": "Kalender 13",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_14": {
+            "name": "Kalender 14",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_15": {
+            "name": "Kalender 15",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_16": {
+            "name": "Kalender 16",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_17": {
+            "name": "Kalender 17",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_18": {
+            "name": "Kalender 18",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_19": {
+            "name": "Kalender 19",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          },
+          "calendar_20": {
+            "name": "Kalender 20",
+            "data": {
+              "calendar_entity": "Kalender-Entität",
+              "display_name": "Anzeigename",
+              "color_mode": "Farbquelle",
+              "override_color": "Eigene Farbe",
+              "person_entity_id": "Home Assistant-Person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Verwendet das Bild dieser Personen-Entität als Avatar, sofern verfügbar."
+            }
+          }
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Nur eine Aurora Calendar-Instanz ist erlaubt."
+    },
+    "error": {
+      "no_calendars_selected": "Bitte wähle mindestens einen Kalender, bevor du fortfährst."
+    }
+  },
+  "options": {
+    "step": {
+      "calendars": {
+        "title": "Kalender konfigurieren",
+        "description": "Wähle aus, welche Kalender-Entitäten einbezogen werden sollen.",
+        "data": {
+          "calendar_entities": "Kalender-Entitäten",
+          "weather_entity": "Wetter-Entität (optional)"
+        }
+      },
+      "details": {
+        "title": "Calendars & People",
+        "description": "Configure the display name, color, and linked person for each calendar.",
+        "data": {
+          "calendar_entity": "Calendar entity",
+          "display_name": "Display name",
+          "color_mode": "Color source",
+          "override_color": "Override color",
+          "person_entity_id": "Home Assistant person (optional)"
+        },
+        "data_description": {
+          "person_entity_id": "Uses this person entity picture as the avatar when available."
+        },
+        "sections": {
+          "calendar_1": {
+            "name": "Calendar 1",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_2": {
+            "name": "Calendar 2",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_3": {
+            "name": "Calendar 3",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_4": {
+            "name": "Calendar 4",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_5": {
+            "name": "Calendar 5",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_6": {
+            "name": "Calendar 6",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_7": {
+            "name": "Calendar 7",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_8": {
+            "name": "Calendar 8",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_9": {
+            "name": "Calendar 9",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_10": {
+            "name": "Calendar 10",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_11": {
+            "name": "Calendar 11",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_12": {
+            "name": "Calendar 12",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_13": {
+            "name": "Calendar 13",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_14": {
+            "name": "Calendar 14",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_15": {
+            "name": "Calendar 15",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_16": {
+            "name": "Calendar 16",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_17": {
+            "name": "Calendar 17",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_18": {
+            "name": "Calendar 18",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_19": {
+            "name": "Calendar 19",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          },
+          "calendar_20": {
+            "name": "Calendar 20",
+            "data": {
+              "calendar_entity": "Calendar entity",
+              "display_name": "Display name",
+              "color_mode": "Color source",
+              "override_color": "Override color",
+              "person_entity_id": "Home Assistant person (optional)"
+            },
+            "data_description": {
+              "person_entity_id": "Uses this person entity picture as the avatar when available."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "no_calendars_selected": "Please pick at least one calendar before continuing."
+    }
+  },
+  "title": "Aurora Calendar"
+}
