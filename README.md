@@ -56,7 +56,7 @@ Home Assistant runs in Docker with the official image, at the version in `.HA_VE
 | `camera.corridor` | Corridor camera | Verisure OWA |
 | `weather.forecast_home` | Weather forecast | Met.no (already named this) |
 
-If you don't have one of these, remove the cards that use it. The pollen and presence sensors come from the packages; presence needs some setup on each phone, see [docs/presence.md](docs/presence.md).
+If you don't have one of these, remove the cards that use it. The pollen and presence sensors come from the packages; presence needs some setup on each phone, see [docs/presence.md](docs/presence.md). WhatsApp notifications need a bridge container and a second WhatsApp number, see [docs/notifications.md](docs/notifications.md).
 
 ## Deploying
 

@@ -44,6 +44,7 @@ The dashboard is made for a 1280x800 tablet. For other screens, see [dashboard.m
 | Echo Dots | `custom_components/alexa_media`, and their temperatures in the floor plan and sidebar |
 | Spotify | `spotify_browser:` in `dashboard.yaml`, `cards/spotify_button.yaml` and its line in each view, `packages/spotify.yaml`, `custom_components/spotifyplus`, and `www/plugins/spotify-browser` with its line in `configuration.yaml` |
 | Alarm | `custom_components/securitas`, the Alarm and Living room tags in `cards/floorplan_elements.yaml`, and the Security view with `cards/cameras.yaml` |
+| Notifications | `packages/notifications.yaml`, `custom_components/wa_bridge`, `whatsapp_number` in `secrets.example.yaml`, and the bridge container |
 | Presence | `packages/presence.yaml`, `custom_templates/presence.jinja` and the glance card in `cards/sidebar/bottom.yaml` |
 | Pollen | `packages/pollen.yaml`, and its row and ring styling in `cards/sidebar/bottom.yaml` |
 

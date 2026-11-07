@@ -1,0 +1,40 @@
+# WhatsApp notifications, set up as in docs/notifications.md. The number is a
+# secret because this repo is public.
+
+automation:
+  - id: notifications_alarm
+    alias: Notifications - alarm armed or disarmed
+    description: Send a WhatsApp message when the alarm is armed or disarmed.
+    # Not on arming/disarming, or when the alarm comes back after a restart.
+    triggers:
+      - trigger: state
+        entity_id: alarm_control_panel.home_alarm
+        to:
+          - armed_away
+          - armed_home
+          - armed_night
+          - armed_custom_bypass
+          - armed_vacation
+          - disarmed
+        not_from:
+          - unknown
+          - unavailable
+    actions:
+      - action: notify.whatsapp
+        data:
+          target: !secret whatsapp_number
+          message: "Alarm: {{ state_translated(trigger.entity_id) }}"
+
+  - id: notifications_status
+    alias: Notifications - status reply
+    description: Reply to "status" with the alarm's state, to check that messages get through both ways.
+    triggers:
+      - trigger: event
+        event_type: whatsapp_message_received
+    conditions:
+      - "{{ trigger.event.data.body | trim | lower == 'status' }}"
+    actions:
+      - action: notify.whatsapp
+        data:
+          target: !secret whatsapp_number
+          message: "Alarm: {{ state_translated('alarm_control_panel.home_alarm') }}"
