@@ -1,0 +1,16 @@
+# Aurora Calendar opens on Next 7 Days. A browser where someone already picked
+# a view keeps that one, the card remembers it locally.
+
+automation:
+  - id: calendar_default_view
+    alias: Calendar - default view
+    description: Set Aurora Calendar's default view to Next 7 Days on startup.
+    triggers:
+      - trigger: homeassistant
+        event: start
+    actions:
+      - action: select.select_option
+        target:
+          entity_id: select.aurora_calendar_view_mode
+        data:
+          option: Next 7 Days
