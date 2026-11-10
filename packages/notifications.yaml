@@ -1,5 +1,5 @@
-# WhatsApp notifications, set up as in docs/notifications.md. The number is a
-# secret because this repo is public.
+# WhatsApp notifications to a group, set up as in docs/notifications.md. The
+# group ID is a secret because this repo is public.
 
 automation:
   - id: notifications_alarm
@@ -22,19 +22,23 @@ automation:
     actions:
       - action: notify.whatsapp
         data:
-          target: !secret whatsapp_number
+          target: !secret whatsapp_group
           message: "Alarm: {{ state_translated(trigger.entity_id) }}"
 
   - id: notifications_status
     alias: Notifications - status reply
-    description: Reply to "status" with the alarm's state, to check that messages get through both ways.
+    description: Reply to "status" in the group with the alarm's state, to check that messages get through both ways.
     triggers:
+      # Only from our group. The bridge filters by group name, which anyone can
+      # copy, so check the ID as well.
       - trigger: event
         event_type: whatsapp_message_received
+        event_data:
+          groupId: !secret whatsapp_group
     conditions:
       - "{{ trigger.event.data.body | trim | lower == 'status' }}"
     actions:
       - action: notify.whatsapp
         data:
-          target: !secret whatsapp_number
-          message: "Alarm: {{ state_translated('alarm_control_panel.home_alarm') }}"
+          target: !secret whatsapp_group
+          message: "Home Alarm: {{ state_translated('alarm_control_panel.home_alarm') }}"
