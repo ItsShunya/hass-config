@@ -1,0 +1,26 @@
+{#-
+  Returns JSON with where the robot is on the floor plan, in % of the image
+  like the elements in cards/vacuum_map_elements.yaml, e.g.
+  {"left": 41.2, "top": 63.5}. Returns nothing if its position isn't known.
+
+  The robot reports its position in its own map's coordinates, in mm, through
+  the vacuum_position attribute of the Xiaomi Cloud Map Extractor (a local
+  change, see docs/vendored.md). The floor plan is a drawing, not the robot's
+  map, so `plan` converts between the two:
+    left = a * x + b * y + c
+    top  = d * x + e * y + f
+  The numbers were fitted by matching the robot's room boxes (the rooms in the
+  integration's diagnostics) to the rooms drawn in vacuum_map_elements.yaml.
+  Fit them again if the robot's map or the floor plan image changes.
+-#}
+{%- macro vacuum_plan_position() -%}
+  {#- Not fitted yet: the robot stays hidden until it is. -#}
+  {%- set plan = none -%}
+  {%- set pos = state_attr('camera.robot_vacuum_map', 'vacuum_position') -%}
+  {%- if plan and pos is mapping -%}
+    {{- {
+      'left': (plan.a * pos.x + plan.b * pos.y + plan.c) | round(2),
+      'top': (plan.d * pos.x + plan.e * pos.y + plan.f) | round(2),
+    } | to_json -}}
+  {%- endif -%}
+{%- endmacro -%}

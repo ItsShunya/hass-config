@@ -1,214 +1,125 @@
-type: custom:xiaomi-vacuum-map-card
-title: ''
-vacuum_platform: al-one/hass-xiaomi-miot
-# Reused below as *vacuum.
-entity: &vacuum vacuum.robot_vacuum
+# Cleaning view: the Home view's floor plan, where tapping the rooms picks
+# them for the vacuum, with its status and buttons on top. They're all in
+# vacuum_map_elements.yaml, this file only sizes and styles them.
+type: picture-elements
+elements: !include vacuum_map_elements.yaml
+image: /local/images/floor_plan.png
 view_layout:
   grid-area: main
-
-# From Xiaomi Cloud Map Extractor.
-map_source:
-  camera: camera.robot_vacuum_map
-  crop: # zoom out
-    top: -100
-    bottom: -100
-    left: -100
-    right: -100
-two_finger_pan: true
-map_locked: true
-calibration_source:
-  camera: true
-
-icons:
-  - icon: mdi:play
-    tooltip: Start / Resume
-    tap_action:
-      action: call-service
-      service: vacuum.start
-      service_data:
-        entity_id: *vacuum
-    conditions:
-      - entity: *vacuum
-        value_not: cleaning
-      - entity: *vacuum
-        value_not: returning
-  # The r2205 has no pause action, but xiaomi_miot maps vacuum.stop to
-  # "stop-sweeping", which pauses on Dreame robots.
-  - icon: mdi:pause
-    tooltip: Pause
-    tap_action:
-      action: call-service
-      service: vacuum.stop
-      service_data:
-        entity_id: *vacuum
-    conditions:
-      - entity: *vacuum
-        value_not: docked
-      - entity: *vacuum
-        value_not: idle
-      - entity: *vacuum
-        value_not: error
-      - entity: *vacuum
-        value_not: paused
-  - icon: mdi:home-map-marker
-    tooltip: Return to base
-    tap_action:
-      action: call-service
-      service: vacuum.return_to_base
-      service_data:
-        entity_id: *vacuum
-    conditions:
-      - entity: *vacuum
-        value_not: docked
-      - entity: *vacuum
-        value_not: returning
-  - icon: mdi:map-marker
-    tooltip: Locate
-    tap_action:
-      action: call-service
-      service: vacuum.locate
-      service_data:
-        entity_id: *vacuum
-
-# Both modes call the scripts in packages/vacuum.yaml. '[[selection]]' is
-# passed as is: a list of rectangles for zones, a list of room ids for rooms.
-map_modes:
-  - template: vacuum_clean_zone
-    name: Zone cleanup
-    icon: mdi:select-drag
-    max_selections: 1
-    repeats_type: EXTERNAL
-    max_repeats: 3
-    service_call_schema:
-      service: script.vacuum_clean_zone
-      service_data:
-        zone: '[[selection]]'
-        repeats: '[[repeats]]'
-  - template: vacuum_clean_segment
-    name: Rooms
-    icon: mdi:floor-plan
-    max_selections: 1
-    repeats_type: EXTERNAL
-    max_repeats: 3
-    service_call_schema:
-      service: script.vacuum_clean_rooms
-      service_data:
-        rooms: '[[selection]]'
-        repeats: '[[repeats]]'
-    predefined_selections:
-      - id: 1
-        outline:
-          - - -7050
-            - 5200
-          - - -7050
-            - 6150
-          - - -6750
-            - 6150
-          - - -6750
-            - 5200
-      - id: 2
-        outline:
-          - - -7000
-            - 650
-          - - -7000
-            - 2000
-          - - -5700
-            - 2000
-          - - -5700
-            - 650
-      - id: 3
-        outline:
-          - - -8550
-            - 5000
-          - - -8550
-            - 6050
-          - - -6950
-            - 6050
-          - - -6950
-            - 5000
-      - id: 4
-        outline:
-          - - -500
-            - -1050
-          - - -500
-            - 450
-          - - 2450
-            - 450
-          - - 2450
-            - -1050
-      - id: 6
-        outline:
-          - - -8300
-            - -850
-          - - -8300
-            - 700
-          - - -5650
-            - 700
-          - - -5650
-            - -850
-      - id: 7
-        outline:
-          - - -5700
-            - -1050
-          - - -5700
-            - 4800
-          - - -300
-            - 4800
-          - - -300
-            - -1050
-      - id: 8
-        outline:
-          - - -7000
-            - 1900
-          - - -7000
-            - 4800
-          - - -4750
-            - 4800
-          - - -4750
-            - 1900
-      - id: 9
-        outline:
-          - - -9150
-            - 650
-          - - -9150
-            - 5000
-          - - -6700
-            - 5000
-          - - -6700
-            - 650
-
-tiles:
-  - icon: mdi:brush
-    label: Main brush time remaining (h)
-    entity: sensor.robot_vacuum_main_brush_left
-  - icon: mdi:brush-variant
-    label: Side brush time remaining (h)
-    entity: sensor.robot_vacuum_side_brush_left
-  - icon: mdi:air-filter
-    label: Filter time left (h)
-    entity: sensor.robot_vacuum_filter_left
-  - icon: mdi:battery-50
-    label: Battery (%)
-    entity: sensor.robot_vacuum_battery
-  - icon: mdi:robot-vacuum
-    label: Charging state
-    entity: sensor.robot_vacuum_charging_state
-
-# Map and controls side by side when there's room, stacked otherwise. Their
-# widths scale with --dash-px, so they stay side by side on a smaller tablet.
+# The plan is sized exactly like in cards/floorplan.yaml, so it sits in the
+# same place on both views; keep the two in step. It fits its grid area with
+# no card around it, --plan-ratio is the image's width / height, and
+# everything on it is sized in cqw (1% of the plan's width).
 card_mod:
   style: |
+    :host {
+      --plan-ratio: 1.23;
+      height: 100%;
+    }
     ha-card {
-      display: flex !important;
-      align-items: stretch;
-      flex-wrap: wrap;
-      justify-content: space-evenly;
+      height: 100%;
+      container-type: size;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      background: none;
+      border: none;
+      box-shadow: none;
     }
-    .map-wrapper {
-      flex-grow: 3;
-      width: calc(500 * var(--dash-px));
+    #root {
+      width: min(100cqw, calc(var(--plan-ratio) * 100cqh));
+      border-radius: var(--ha-card-border-radius, 12px);
+      overflow: hidden;
+      container-type: inline-size;
     }
-    .controls-wrapper {
-      flex-grow: 1;
-      width: calc(300 * var(--dash-px));
+
+    /* Rooms. The card centres every element on its left and top; rooms are
+       boxes from their top left corner instead. The tag in the middle is
+       drawn here: its place in the order once picked, then the name. The
+       --room-fill, --tag-* and --order variables are set by each room's
+       card_mod while it's picked. */
+    #root > hui-icon-element {
+      transform: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3em;
+      font-size: max(10px, 1.4cqw);
+      background: var(--room-fill, transparent);
+      transition: background-color 0.2s;
+    }
+    #root > hui-icon-element::before {
+      content: var(--order);
+      display: grid;
+      place-items: center;
+      width: 1.6em;
+      height: 1.6em;
+      border-radius: 50%;
+      background: var(--primary-color);
+      color: var(--text-primary-color);
+      font-size: 0.8em;
+      font-weight: 600;
+    }
+    #root > hui-icon-element::after {
+      content: var(--room);
+      padding: 0.35em 0.6em 0.4em;
+      border: 1px solid var(--tag-line, color-mix(in srgb, var(--primary-text-color) 15%, transparent));
+      border-radius: 0.6em;
+      background: var(--tag-bg, color-mix(in srgb, var(--card-background-color) 80%, transparent));
+      color: var(--tag-fg, var(--secondary-text-color));
+      font-size: 0.8em;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    /* Status and buttons: tags like the Home view's (cards/floorplan.yaml).
+       The buttons' group overrides the look in its own style. */
+    #root > hui-conditional-element {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      padding: 0.35em 0.6em 0.4em;
+      border: 1px solid color-mix(in srgb, var(--primary-text-color) 15%, transparent);
+      border-radius: 0.6em;
+      background: color-mix(in srgb, var(--card-background-color) 80%, transparent);
+      font-size: max(10px, 1.4cqw);
+      line-height: 1.2;
+      white-space: nowrap;
+      pointer-events: none;
+      --mdc-icon-size: 1.1em;
+    }
+    #root > hui-conditional-element::before {
+      content: var(--room);
+      display: block;
+      font-size: 0.7em;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--secondary-text-color);
+    }
+    #root > hui-conditional-element > .element {
+      position: static;
+      transform: none;
+      display: inline-flex;
+      vertical-align: middle;
+    }
+    #root > hui-conditional-element > hui-icon-element {
+      color: var(--secondary-text-color);
+    }
+    /* state-label pads its text by 8px inside its shadow root, which we
+       can't style, so cancel it with a negative margin. */
+    #root > hui-conditional-element > hui-state-label-element {
+      margin: -8px -8px -8px calc(0.2em - 8px);
+    }
+    #root > hui-conditional-element > hui-state-label-element:not(:last-child) {
+      margin-right: calc(0.6em - 8px);
+    }
+    @media (max-width: 800px) {
+      ha-card {
+        height: auto;
+        container-type: normal;
+      }
+      #root {
+        width: 100%;
+      }
     }

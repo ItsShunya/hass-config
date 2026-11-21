@@ -14,7 +14,7 @@ Rename your entities to match the [table in the README](../README.md#setup). If 
 - `cards/cameras.yaml`: the alarm's cameras.
 - `cards/sidebar/bottom.yaml`: inside temperature and weather.
 - `dashboards/general/dashboard.yaml`: the Spotify account, under `spotify_browser:`.
-- `cards/vacuum_map.yaml` and `packages/vacuum.yaml`: the vacuum.
+- `cards/vacuum_map_elements.yaml` and `packages/vacuum.yaml`: the vacuum.
 
 ## People
 
@@ -25,11 +25,12 @@ Nothing to edit. Add the people and set up their phones as in [presence.md](pres
 1. Replace `www/images/floor_plan.png`.
 2. Set `--plan-ratio` in `cards/floorplan.yaml` to the image's width / height.
 3. Move the room tags in `cards/floorplan_elements.yaml`.
+4. Do the same for the Cleaning view: `--plan-ratio` in `cards/vacuum_map.yaml`, and the rooms in `cards/vacuum_map_elements.yaml`.
 
 ## Vacuum
 
-- Redraw your rooms under `predefined_selections` in `cards/vacuum_map.yaml`.
-- If it isn't a Dreame on Xiaomi Miot, also rewrite the two scripts in `packages/vacuum.yaml` and change `vacuum_platform` in `cards/vacuum_map.yaml`.
+- Redraw the rooms in `cards/vacuum_map_elements.yaml` over your floor plan, each with its segment id. The ids and the robot's names for them are in the vacuum's `rooms` attribute if your integration has one, or in its app.
+- If it isn't a Dreame on Xiaomi Miot, also rewrite `vacuum_clean_rooms` and `vacuum_stop` in `packages/vacuum.yaml`.
 
 ## Screen
 
@@ -40,7 +41,7 @@ The dashboard is made for a 1280x800 tablet. For other screens, see [dashboard.m
 | Feature | Remove |
 |---|---|
 | A view | Its file in `dashboards/general/views/`, its line in `dashboard.yaml` and its menu item in `cards/sidebar/top.yaml` |
-| Vacuum | The Cleaning view, `packages/vacuum.yaml`, `cards/vacuum_map.yaml`, `custom_components/xiaomi_*`, and `www/plugins/xiaomi-vacuum-map-card` with its line in `configuration.yaml` |
+| Vacuum | The Cleaning view, `packages/vacuum.yaml`, `cards/vacuum_map.yaml`, `cards/vacuum_map_elements.yaml` and `custom_components/xiaomi_*` |
 | Echo Dots | `custom_components/alexa_media`, and their temperatures in the floor plan and sidebar |
 | Spotify | `spotify_browser:` in `dashboard.yaml`, `cards/spotify_button.yaml` and its line in each view, `packages/spotify.yaml`, `custom_components/spotifyplus`, and `www/plugins/spotify-browser` with its line in `configuration.yaml` |
 | Alarm | `custom_components/securitas`, the Alarm and Living room tags in `cards/floorplan_elements.yaml`, and the Security view with `cards/cameras.yaml` |

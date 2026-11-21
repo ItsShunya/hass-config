@@ -17,7 +17,7 @@ Each folder keeps its upstream `LICENSE`. This code isn't covered by the repo's 
 | `custom_components/aurora_calendar` | [davidlop28/ha-aurora-calendar](https://github.com/davidlop28/ha-aurora-calendar) | `v0.2.0` | MIT |
 
 - **xiaomi_miot** comes from the main branch, not a release. Its `manifest.json` still says `1.1.2` because upstream hadn't bumped it yet.
-- **xiaomi_cloud_map_extractor**: the upstream `v3.0.0-alpha-10` tag has `v3.0.0-beta` in its `manifest.json`. I changed it to `v3.0.0-alpha-10`, and that's the only difference from upstream.
+- **xiaomi_cloud_map_extractor**: the upstream `v3.0.0-alpha-10` tag has `v3.0.0-beta` in its `manifest.json`. I changed it to `v3.0.0-alpha-10`. I also added the robot's position and room to the entities' attributes in `entity.py` (marked with a comment), for the robot icon on the Cleaning view; upstream only has them in the diagnostics. Add that back after updating, unless upstream has it by then.
 - **wa_bridge** needs the bridge image from the same release ([notifications.md](notifications.md)), so update both together. The image only has `sha-<commit>` tags: use the commit shown on the release's page, e.g. `sha-385122d` for `v3.1.1`.
 - **aurora_calendar** serves its own card at `/aurora_calendar_static/`. Our resources are in YAML, so the card is listed in `configuration.yaml`: bump its `?v=` with the integration. The `failed to register Lovelace resource` error at startup is the integration trying to add it itself, and is harmless.
 
