@@ -31,7 +31,6 @@ Each folder keeps its upstream `LICENSE`. This code isn't covered by the repo's 
 | `www/plugins/spotify-browser` | [BWilky/HA-Spotify-Browser](https://github.com/BWilky/HA-Spotify-Browser) | `v0.4.0` | MIT |
 | `www/plugins/stack-in-card` | [custom-cards/stack-in-card](https://github.com/custom-cards/stack-in-card) | `0.2.0` | MIT |
 | `www/plugins/weather-forecast-card` | [troinine/ha-weather-forecast-card](https://github.com/troinine/ha-weather-forecast-card) | `v1.0.0` | MIT |
-| `www/plugins/xiaomi-vacuum-map-card` | [PiotrMachowski/lovelace-xiaomi-vacuum-map-card](https://github.com/PiotrMachowski/lovelace-xiaomi-vacuum-map-card) | `v2.3.2` | MIT |
 
 - **kiosk-mode** only works with certain Home Assistant versions, listed at the top of [its README](https://github.com/NemesisRE/kiosk-mode#installation). `v10.0.1` is the last one for 2026.2.x. Don't update it just because Renovate shows a new release: update it with Home Assistant, to the version that table gives.
 - **spotify-browser** needs SpotifyPlus `v1.0.200` or newer.
@@ -52,11 +51,11 @@ curl -sL https://raw.githubusercontent.com/alandtse/alexa_media_player/v5.15.0/L
   -o custom_components/alexa_media/LICENSE
 ```
 
-A card, e.g. `xiaomi-vacuum-map-card` to `v2.4.1`:
+A card that attaches its `.js` to each release:
 
 ```sh
-curl -sL https://github.com/PiotrMachowski/lovelace-xiaomi-vacuum-map-card/releases/download/v2.4.1/xiaomi-vacuum-map-card.js \
-  -o www/plugins/xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js
+curl -sL https://github.com/<owner>/<repo>/releases/download/<tag>/<card>.js \
+  -o www/plugins/<card>/<card>.js
 ```
 
 card-mod and layout-card don't publish release files, so take `card-mod.js` or `layout-card.js` from the tag (e.g. `https://raw.githubusercontent.com/thomasloven/lovelace-card-mod/<tag>/card-mod.js`). layout-card's license is `LICENSE.txt` upstream; it's saved here as `LICENSE` like the others.

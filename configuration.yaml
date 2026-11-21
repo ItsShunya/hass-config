@@ -43,9 +43,6 @@ lovelace:
   # Bump ?v= whenever a file changes, or browsers keep the cached copy. The
   # renovate comments tell Renovate where to look for new releases.
   resources:
-    # renovate: repo=PiotrMachowski/lovelace-xiaomi-vacuum-map-card
-    - url: /local/plugins/xiaomi-vacuum-map-card/xiaomi-vacuum-map-card.js?v=2.3.2
-      type: module
     # renovate: repo=thomasloven/lovelace-card-mod
     - url: /local/plugins/card-mod/card-mod.js?v=4.2.1
       type: module
