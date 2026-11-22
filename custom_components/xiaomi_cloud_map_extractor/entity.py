@@ -75,8 +75,7 @@ class XiaomiCloudMapExtractorEntity(CoordinatorEntity[XiaomiCloudMapExtractorDat
         if data.map_data:
             attributes["calibration_points"] = data.map_data.calibration()
             attributes["rooms"] = data.map_data.rooms
-            # Local change, not upstream (docs/vendored.md): the robot's position
-            # and room, for the robot icon on the Cleaning view.
+            # Local change (docs/vendored.md): robot position for the Cleaning view.
             vacuum_position = data.map_data.vacuum_position
             attributes["vacuum_position"] = vacuum_position and asdict(vacuum_position)
             attributes["vacuum_room"] = data.map_data.vacuum_room

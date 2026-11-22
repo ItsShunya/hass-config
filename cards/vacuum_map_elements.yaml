@@ -1,23 +1,12 @@
-# What's drawn on the floor plan in the Cleaning view (cards/vacuum_map.yaml):
-# the rooms the vacuum can clean, the robot itself, its status and its
-# buttons.
+# Rooms, robot and buttons on the Cleaning view (cards/vacuum_map.yaml).
 
-# Rooms. Tap one to pick it and again to drop it; Start cleans the picked
-# ones in the order they were picked. The picks are kept in
-# input_text.vacuum_rooms (packages/vacuum.yaml), so every screen shows the
-# same ones.
+# Rooms. Tap to pick or unpick, and Start cleans the picked ones in order. The
+# picks live in input_text.vacuum_rooms so all screens see the same.
 #
-# Each room is an icon element stretched over its floor, with the icon itself
-# hidden: the card only reacts to taps on the icon, so it has to cover the
-# room. `left`, `top`, `width` and `height` are the room's box in % of the
-# image, and `clip-path` cuts L-shaped rooms out of it. `--room` is the name on
-# its tag (in double quotes, it's used as CSS content). `room` in the
-# tap_action is the robot's segment id; the robot's own name for it is in the
-# comment above. The kitchen and the living room are one segment to the robot,
-# so picking either lights up both.
-#
-# The card_mod below is the same for every room. It highlights the room when
-# its id is in the picks and numbers its tag with its place in the order.
+# Each room is an icon stretched over the floor with the icon hidden, since
+# only the icon takes taps. left/top/width/height are its box in %, and
+# clip-path cuts out the L-shaped ones. `room` is the robot's segment id.
+# Kitchen and living room are the same segment for the robot.
 #
 # 7: Living Room
 - type: icon
@@ -33,6 +22,7 @@
     width: 32.59%
     height: 36.6%
     --room: '"Living room"'
+  # Highlights the room and numbers it when it's picked.
   card_mod: &room
     style: |
       :host ha-icon,
@@ -54,7 +44,7 @@
       }
       {%- endif %}
 
-# 7: Living Room, the kitchen end.
+# 7: Living Room (kitchen side)
 - type: icon
   icon: mdi:floor-plan
   tap_action:
@@ -71,7 +61,7 @@
     --room: '"Kitchen"'
   card_mod: *room
 
-# 9: Primary Bedroom. The wardrobe in its top left corner is cut out.
+# 9: Primary Bedroom, without the wardrobe
 - type: icon
   icon: mdi:floor-plan
   tap_action:
@@ -120,7 +110,7 @@
     --room: '"Bathroom"'
   card_mod: *room
 
-# 4: Corridor. The hallway, where the dock is.
+# 4: Corridor
 - type: icon
   icon: mdi:floor-plan
   tap_action:
@@ -136,7 +126,7 @@
     --room: '"Corridor"'
   card_mod: *room
 
-# 2: Corridor 2. The diagonal wall in its top right corner is cut out.
+# 2: Corridor 2
 - type: icon
   icon: mdi:floor-plan
   tap_action:
@@ -153,11 +143,9 @@
     --room: '"Corridor 2"'
   card_mod: *room
 
-# The robot, where it is right now. Its position comes from
-# custom_templates/vacuum.jinja and updates every 10 seconds, the map
-# integration's polling interval; it glides there over those 10 seconds, so it
-# moves smoothly a step behind the real robot. It pulses while cleaning, and
-# lets taps through to the room under it.
+# The robot. The map integration updates its position every 10s, so it slides
+# there over 10s. Hidden until custom_templates/vacuum.jinja knows where it is,
+# pulses while cleaning.
 - type: state-icon
   entity: vacuum.robot_vacuum
   icon: mdi:robot-vacuum
@@ -187,7 +175,6 @@
         height: 2em;
         border-radius: 50%;
         background: var(--primary-color);
-        color: var(--text-primary-color);
         --state-icon-color: var(--text-primary-color);
         --mdc-icon-size: 1.25em;
         box-shadow: 0 0.1em 0.4em rgba(0, 0, 0, 0.5);
@@ -210,7 +197,6 @@
       }
       {%- endif %}
 
-# Status, in an empty corner like the Home view's alarm tag.
 - type: conditional
   conditions: []
   style:
@@ -229,20 +215,15 @@
     - type: state-label
       entity: sensor.robot_vacuum_battery
 
-# Buttons, in the empty bottom left corner: Start on top, then pause, stop
-# and dock. Start cleans the picked rooms, or the whole house if none are
-# picked, and its label says which. The other buttons are outlined while the
-# robot is in their state.
-#
-# Like the rooms, each button is the icon itself, styled by the card_mod
-# below, since that's the part that takes taps.
+# Buttons: Start (Resume when paused, Stop while cleaning) and Dock. No
+# pause, it does the same as stop on this robot. Start and Stop are separate
+# buttons and only one is shown at a time.
 - type: conditional
   conditions: []
   style:
     left: 15%
     top: 84%
-    display: grid
-    grid-template-columns: repeat(3, auto)
+    display: flex
     gap: 0.5em
     padding: 0
     border: none
@@ -256,36 +237,35 @@
       tap_action:
         action: perform-action
         perform_action: script.vacuum_start
-      style:
-        grid-column: 1 / -1
-        justify-self: center
       card_mod: &button
         style: |
+          {%- set action = config.tap_action.perform_action %}
+          {%- set cleaning = is_state('vacuum.robot_vacuum', 'cleaning') %}
           :host ha-icon,
           :host ha-icon:focus {
             display: inline-flex;
             align-items: center;
-            justify-content: center;
             gap: 0.4em;
             box-sizing: border-box;
             min-width: 2.6em;
             height: 2.6em;
-            padding: 0;
+            justify-content: center;
             border: 1px solid color-mix(in srgb, var(--primary-text-color) 15%, transparent);
             border-radius: 1.3em;
             background: color-mix(in srgb, var(--card-background-color) 80%, transparent);
             color: var(--primary-text-color);
             --mdc-icon-size: 1.2em;
           }
-          {%- set state = states('vacuum.robot_vacuum') %}
-          {%- set action = config.tap_action.perform_action %}
-          {%- if action == 'script.vacuum_start' %}
+          {%- if action == 'vacuum.return_to_base' %}
+          {%- if states('vacuum.robot_vacuum') in ['returning', 'docked'] %}
+          :host ha-icon {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+          }
+          {%- endif %}
+          {%- else %}
           {%- set n = states('input_text.vacuum_rooms').split(',')
             | reject('in', ['', 'unknown', 'unavailable']) | list | count %}
-          {%- set label = 'Clean ' ~ n ~ (' room' if n == 1 else ' rooms') if n
-            else 'Resume' if state == 'paused'
-            else 'Cleaning' if state == 'cleaning'
-            else 'Clean all' %}
           :host ha-icon,
           :host ha-icon:focus {
             padding: 0 1em 0 0.8em;
@@ -294,32 +274,25 @@
             color: var(--text-primary-color);
           }
           :host ha-icon::after {
-            content: "{{ label }}";
             font-size: 0.8em;
             font-weight: 500;
+          {%- if action == 'script.vacuum_stop' %}
+            content: "Stop";
+          {%- elif n %}
+            content: "Clean {{ n }} room{{ 's' if n > 1 }}";
+          {%- elif is_state('vacuum.robot_vacuum', 'paused') %}
+            content: "Resume";
+          {%- else %}
+            content: "Clean all";
+          {%- endif %}
           }
-          {%- elif state in {
-            'vacuum.pause': ['paused'],
-            'script.vacuum_stop': ['idle'],
-            'vacuum.return_to_base': ['returning', 'docked'],
-          }.get(action, []) %}
-          :host ha-icon,
-          :host ha-icon:focus {
-            border-color: var(--primary-color);
-            color: var(--primary-color);
+          {%- if cleaning != (action == 'script.vacuum_stop') %}
+          /* !important or the card's own CSS wins */
+          :host {
+            display: none !important;
           }
           {%- endif %}
-    # The robot has no pause action of its own. xiaomi_miot falls back to
-    # "stop-sweeping", which pauses on Dreame robots.
-    - type: icon
-      icon: mdi:pause
-      title: Pause
-      tap_action:
-        action: perform-action
-        perform_action: vacuum.pause
-        target:
-          entity_id: vacuum.robot_vacuum
-      card_mod: *button
+          {%- endif %}
     - type: icon
       icon: mdi:stop
       title: Stop

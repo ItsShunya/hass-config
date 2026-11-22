@@ -1,15 +1,11 @@
-# Cleaning view: the Home view's floor plan, where tapping the rooms picks
-# them for the vacuum, with its status and buttons on top. They're all in
-# vacuum_map_elements.yaml, this file only sizes and styles them.
+# Cleaning view: the Home floor plan, but tapping a room picks it for the
+# vacuum. Everything on it is in vacuum_map_elements.yaml.
 type: picture-elements
 elements: !include vacuum_map_elements.yaml
 image: /local/images/floor_plan.png
 view_layout:
   grid-area: main
-# The plan is sized exactly like in cards/floorplan.yaml, so it sits in the
-# same place on both views; keep the two in step. It fits its grid area with
-# no card around it, --plan-ratio is the image's width / height, and
-# everything on it is sized in cqw (1% of the plan's width).
+# Sized the same as cards/floorplan.yaml, keep both in sync.
 card_mod:
   style: |
     :host {
@@ -33,11 +29,9 @@ card_mod:
       container-type: inline-size;
     }
 
-    /* Rooms. The card centres every element on its left and top; rooms are
-       boxes from their top left corner instead. The tag in the middle is
-       drawn here: its place in the order once picked, then the name. The
-       --room-fill, --tag-* and --order variables are set by each room's
-       card_mod while it's picked. */
+    /* Rooms. Placed by their top left corner instead of their centre, with
+       the order number and name in the middle. Each room's card_mod sets the
+       variables while it's picked. */
     #root > hui-icon-element {
       transform: none;
       display: flex;
@@ -74,8 +68,7 @@ card_mod:
       transition: background-color 0.2s, color 0.2s;
     }
 
-    /* Status and buttons: tags like the Home view's (cards/floorplan.yaml).
-       The buttons' group overrides the look in its own style. */
+    /* Status tag, same as on the Home view. */
     #root > hui-conditional-element {
       position: absolute;
       transform: translate(-50%, -50%);
@@ -106,8 +99,7 @@ card_mod:
     #root > hui-conditional-element > hui-icon-element {
       color: var(--secondary-text-color);
     }
-    /* state-label pads its text by 8px inside its shadow root, which we
-       can't style, so cancel it with a negative margin. */
+    /* Cancels the 8px padding state-label has inside. */
     #root > hui-conditional-element > hui-state-label-element {
       margin: -8px -8px -8px calc(0.2em - 8px);
     }

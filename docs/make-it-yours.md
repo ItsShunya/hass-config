@@ -29,7 +29,7 @@ Nothing to edit. Add the people and set up their phones as in [presence.md](pres
 
 ## Vacuum
 
-- Redraw the rooms in `cards/vacuum_map_elements.yaml` over your floor plan, each with its segment id. The ids and the robot's names for them are in the vacuum's `rooms` attribute if your integration has one, or in its app.
+- Redraw the rooms in `cards/vacuum_map_elements.yaml` with your segment ids (they're in the map camera's `rooms` attribute).
 - If it isn't a Dreame on Xiaomi Miot, also rewrite `vacuum_clean_rooms` and `vacuum_stop` in `packages/vacuum.yaml`.
 
 ## Screen

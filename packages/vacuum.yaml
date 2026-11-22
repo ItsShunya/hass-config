@@ -1,10 +1,8 @@
 # Robot vacuum (Dreame D10 Plus, dreame.vacuum.r2205, via Xiaomi Miot).
-# The Cleaning view (cards/vacuum_map.yaml) picks rooms with
-# vacuum_toggle_room and cleans them with vacuum_start.
+# Used by the Cleaning view (cards/vacuum_map.yaml).
 
 input_text:
-  # The rooms picked on the Cleaning view, as segment ids in the order they
-  # were picked, comma-separated (e.g. "7,4"). Empty when none are.
+  # Rooms picked on the Cleaning view, in order, e.g. "7,4".
   vacuum_rooms:
     name: Vacuum rooms
     icon: mdi:floor-plan
@@ -13,13 +11,12 @@ input_text:
 script:
   vacuum_toggle_room:
     alias: Vacuum - pick room
-    description: Add a room to the rooms picked on the Cleaning view, or take it out if it's already there.
+    description: Pick or unpick a room on the Cleaning view.
     icon: mdi:gesture-tap
-    # Queued, so quick taps on two rooms both count.
     mode: queued
     fields:
       room:
-        description: Room segment id, as in cards/vacuum_map_elements.yaml.
+        description: Room segment id.
         required: true
         example: 7
         selector:
@@ -39,10 +36,7 @@ script:
 
   vacuum_start:
     alias: Vacuum - start
-    description: >-
-      Clean the rooms picked on the Cleaning view, in the order they were
-      picked, and clear the picks. With none picked, clean the whole house, or
-      resume if paused.
+    description: Clean the picked rooms, or the whole house if none are picked.
     icon: mdi:play
     sequence:
       - variables:
@@ -64,11 +58,10 @@ script:
             target:
               entity_id: vacuum.robot_vacuum
 
-  # vacuum.stop is "stop-sweeping", which only pauses on Dreame robots. This
-  # is "stop-clean" (siid 4, aiid 2), which ends the task.
+  # vacuum.stop only pauses on Dreame, this ends the clean (siid 4, aiid 2).
   vacuum_stop:
     alias: Vacuum - stop
-    description: End the current clean. The robot stays where it is.
+    description: Stop cleaning.
     icon: mdi:stop
     sequence:
       - action: xiaomi_miot.call_action
@@ -92,7 +85,7 @@ script:
     icon: mdi:floor-plan
     fields:
       rooms:
-        description: Room segment id, or a list of them, as in cards/vacuum_map_elements.yaml.
+        description: Room segment id, or a list of them.
         required: true
         example: "[4, 7]"
         selector:
@@ -119,14 +112,14 @@ script:
             {{ [{'piid': 1, 'value': 18}, {'piid': 10, 'value': {'selects': ns.selects} | to_json}] }}
           force_params: true
 
-  # Not on the dashboard, but there to call from automations or by hand.
+  # Not on the dashboard.
   vacuum_clean_zone:
     alias: Vacuum - clean zone
     description: Clean one or more rectangular zones, given in map coordinates.
     icon: mdi:select-drag
     fields:
       zone:
-        description: Rectangle [x1, y1, x2, y2], or a list of them, in the robot's map coordinates (mm).
+        description: Rectangle [x1, y1, x2, y2] in map coordinates, or a list of them.
         required: true
         example: "[[-7000, 650, -5700, 2000]]"
         selector:
@@ -156,9 +149,7 @@ script:
 automation:
   - id: vacuum_rooms_forget
     alias: Vacuum - forget picked rooms
-    description: >-
-      Clear the rooms picked on the Cleaning view if they're left for 10
-      minutes without starting, so a later Start doesn't clean only those.
+    description: Clear the picked rooms if nothing starts within 10 minutes.
     triggers:
       - trigger: state
         entity_id: input_text.vacuum_rooms

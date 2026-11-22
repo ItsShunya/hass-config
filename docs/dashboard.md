@@ -15,7 +15,7 @@ Cards pick their spot with `view_layout: grid-area:` set to `sidebar`, `top`, `b
 ## Views
 
 - **Home** (`views/overview.yaml`): the floor plan (`cards/floorplan.yaml`) with a tag on each room for its temperature, plus humidity and air quality in the living room, and one for the alarm. The tags are in `cards/floorplan_elements.yaml`.
-- **Cleaning** (`views/cleaning.yaml`): the same floor plan as Home (`cards/vacuum_map.yaml`), for the vacuum. Tap rooms to pick them (they light up and are numbered in the order they'll be cleaned), then Start. With nothing picked, Start cleans the whole house. The robot moves across the plan as it cleans (`custom_templates/vacuum.jinja` converts its position to the plan's). The vacuum's state and battery are in the top right, and its buttons (start, pause, stop, dock) in the bottom left. The rooms and buttons are in `cards/vacuum_map_elements.yaml`. Picks are shared between screens and cleared after 10 minutes if nothing starts.
+- **Cleaning** (`views/cleaning.yaml`): the Home floor plan for the vacuum (`cards/vacuum_map.yaml`, elements in `cards/vacuum_map_elements.yaml`). Tap rooms to pick them, then Start. Nothing picked cleans the whole house. Start turns into Stop while it cleans. The robot shows up on the plan where it is (`custom_templates/vacuum.jinja`).
 - **Calendar** (`views/calendar.yaml`): the Google calendars in [Aurora Calendar](https://github.com/davidlop28/ha-aurora-calendar)'s card (`cards/calendar.yaml`).
 - **Security** (`views/security.yaml`): the alarm's cameras (`cards/cameras.yaml`). They take pictures instead of streaming: each card shows the last one, the button in its corner takes a new one, and tapping it opens it full size.
 
