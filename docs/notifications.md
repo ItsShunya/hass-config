@@ -4,6 +4,8 @@ Home Assistant sends WhatsApp messages to a group when:
 
 - The alarm is armed or disarmed ([`packages/notifications.yaml`](../packages/notifications.yaml)).
 - The vacuum starts or finishes a clean, gets stuck, is left off the dock for 30 minutes, or a brush or the filter is under 10% life ([`packages/vacuum.yaml`](../packages/vacuum.yaml)).
+- The living room's air quality is poor or its humidity is above 75%, or a room is above 30 °C or below 16 °C ([`packages/climate.yaml`](../packages/climate.yaml)).
+- Pollen will be high today, at 6:15 ([`packages/pollen.yaml`](../packages/pollen.yaml)).
 
 It also replies to "status" in the group with the alarm's state. Each package sends its own messages with `notify.whatsapp` and the `whatsapp_group` secret.
 

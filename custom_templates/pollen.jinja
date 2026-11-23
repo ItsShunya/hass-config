@@ -1,0 +1,29 @@
+{#-
+  Pollen level from Open-Meteo's counts (grains/m³): None, Low, Moderate,
+  High or Very high. Pass the API's `current`, or `hourly` to get the worst
+  hour.
+
+  Levels use the National Allergy Bureau (AAAAI) thresholds, which are
+  different for trees, grass and weeds. `scales` has the lowest count for
+  Low, Moderate, High and Very high; the level is how many are reached.
+-#}
+{%- macro pollen_level(counts) -%}
+  {%- set levels = ['None', 'Low', 'Moderate', 'High', 'Very high'] -%}
+  {%- set scales = {
+    'tree': [1, 15, 90, 1500],
+    'grass': [1, 5, 20, 200],
+    'weed': [1, 10, 50, 500],
+  } -%}
+  {%- set types = {
+    'alder_pollen': 'tree', 'birch_pollen': 'tree', 'olive_pollen': 'tree',
+    'grass_pollen': 'grass',
+    'mugwort_pollen': 'weed', 'ragweed_pollen': 'weed',
+  } -%}
+  {%- set ns = namespace(level=0) -%}
+  {%- for key, group in types.items() -%}
+    {%- set value = counts[key] -%}
+    {%- set count = (value if value is list else [value]) | map('float', 0) | max -%}
+    {%- set ns.level = [ns.level, scales[group] | select('le', count) | list | count] | max -%}
+  {%- endfor -%}
+  {{- levels[ns.level] -}}
+{%- endmacro -%}

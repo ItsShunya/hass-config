@@ -1,0 +1,67 @@
+# WhatsApp warnings about the air at home: stale air, damp, and rooms that
+# are too hot or too cold. See docs/notifications.md.
+
+automation:
+  - id: climate_notify_air
+    alias: Climate - notify stale air
+    description: Send a WhatsApp message to open a window when the living room's air quality is poor.
+    triggers:
+      - trigger: state
+        entity_id: sensor.living_room_air_quality
+        to: Poor
+        for: "00:15:00"
+    # Only if someone's there to open it.
+    conditions:
+      - condition: numeric_state
+        entity_id: sensor.people_home
+        above: 0
+    actions:
+      - action: notify.whatsapp
+        data:
+          target: !secret whatsapp_group
+          message: "Living room: air quality is poor, open a window"
+
+  - id: climate_notify_damp
+    alias: Climate - notify damp
+    description: Send a WhatsApp message when the living room's humidity is above 75%.
+    # For an hour, so cooking or drying clothes for a bit doesn't count.
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.living_room_humidity
+        above: 75
+        for: "01:00:00"
+    actions:
+      - action: notify.whatsapp
+        data:
+          target: !secret whatsapp_group
+          message: >-
+            Living room: humidity at {{ trigger.to_state.state }}%, mould risk.
+            Open a window or run a dehumidifier.
+
+  - id: climate_notify_temperature
+    alias: Climate - notify too hot or too cold
+    description: Send a WhatsApp message when a room is above 30 °C or below 16 °C.
+    # 16 °C is under the WHO's 18 °C minimum for homes, 30 °C is hot even for
+    # summer. For half an hour, so the oven or an open window doesn't count.
+    triggers:
+      - trigger: numeric_state
+        id: hot
+        entity_id: &rooms
+          - sensor.living_room_temperature
+          - sensor.bedroom_temperature
+          - sensor.kitchen_temperature
+        above: 30
+        for: "00:30:00"
+      - trigger: numeric_state
+        id: cold
+        entity_id: *rooms
+        below: 16
+        for: "00:30:00"
+    actions:
+      - action: notify.whatsapp
+        data:
+          target: !secret whatsapp_group
+          # The room comes from the entity ID, e.g. "Bedroom: 31 °C, too hot".
+          message: >-
+            {{ trigger.entity_id | replace('sensor.', '') | replace('_temperature', '')
+              | replace('_', ' ') | capitalize }}: {{ trigger.to_state.state }} °C, too {{ trigger.id }}

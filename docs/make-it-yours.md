@@ -15,6 +15,7 @@ Rename your entities to match the [table in the README](../README.md#setup). If 
 - `cards/sidebar/bottom.yaml`: inside temperature and weather.
 - `dashboards/general/dashboard.yaml`: the Spotify account, under `spotify_browser:`.
 - `cards/vacuum_map_elements.yaml` and `packages/vacuum.yaml`: the vacuum.
+- `packages/climate.yaml`: the rooms that get air, humidity and temperature warnings.
 
 ## People
 
@@ -45,8 +46,8 @@ The dashboard is made for a 1280x800 tablet. For other screens, see [dashboard.m
 | Echo Dots | `custom_components/alexa_media`, and their temperatures in the floor plan and sidebar |
 | Spotify | `spotify_browser:` in `dashboard.yaml`, `cards/spotify_button.yaml` and its line in each view, `packages/spotify.yaml`, `custom_components/spotifyplus`, and `www/plugins/spotify-browser` with its line in `configuration.yaml` |
 | Alarm | `custom_components/securitas`, the Alarm and Living room tags in `cards/floorplan_elements.yaml`, and the Security view with `cards/cameras.yaml` |
-| Notifications | `packages/notifications.yaml`, the `notify.whatsapp` automations in other packages (`vacuum.yaml`), `custom_components/wa_bridge`, `whatsapp_group` in `secrets.example.yaml`, and the bridge container |
+| Notifications | `packages/notifications.yaml` and `packages/climate.yaml`, the `notify.whatsapp` automations in other packages (`vacuum.yaml`, `pollen.yaml`), `custom_components/wa_bridge`, `whatsapp_group` in `secrets.example.yaml`, and the bridge container |
 | Presence | `packages/presence.yaml`, `custom_templates/presence.jinja` and the glance card in `cards/sidebar/bottom.yaml` |
-| Pollen | `packages/pollen.yaml`, and its row and ring styling in `cards/sidebar/bottom.yaml` |
+| Pollen | `packages/pollen.yaml`, `custom_templates/pollen.jinja`, and its row and ring styling in `cards/sidebar/bottom.yaml` |
 
 Take removed components out of the tables in [vendored.md](vendored.md) too, and delete the files on the server with `make exec`, since deploying won't.

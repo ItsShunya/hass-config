@@ -1,4 +1,5 @@
-# Pollen level at home, for the sidebar (cards/sidebar/bottom.yaml).
+# Pollen level at home, for the sidebar (cards/sidebar/bottom.yaml) and a
+# WhatsApp message on high days.
 #
 # Counts come from Open-Meteo's air quality API: free, no key, Europe only.
 # Outside the pollen season they're all 0. It gets sent the home location,
@@ -10,17 +11,14 @@ rest:
   - resource_template: >-
       {%- set types = 'alder_pollen,birch_pollen,olive_pollen,grass_pollen,mugwort_pollen,ragweed_pollen' -%}
       https://air-quality-api.open-meteo.com/v1/air-quality?current={{ types
-      }}&latitude={{ state_attr('zone.home', 'latitude')
+      }}&hourly={{ types }}&forecast_days=1&timezone=auto&latitude={{ state_attr('zone.home', 'latitude')
       }}&longitude={{ state_attr('zone.home', 'longitude') }}
     # The API updates hourly.
     scan_interval: 3600
     sensor:
-      # State is the worst level of any type: None, Low, Moderate, High or
-      # Very high. Each type's count (grains/m³) is an attribute.
-      #
-      # Levels use the National Allergy Bureau (AAAAI) thresholds, which are
-      # different for trees, grass and weeds. `scales` has the lowest count for
-      # Low, Moderate, High and Very high; the level is how many are reached.
+      # State is the worst level of any type right now: None, Low, Moderate,
+      # High or Very high (custom_templates/pollen.jinja). Each type's count
+      # (grains/m³) is an attribute.
       - name: Pollen
         unique_id: pollen_level
         icon: mdi:flower-pollen
@@ -33,23 +31,17 @@ rest:
           - mugwort_pollen
           - ragweed_pollen
         value_template: >-
-          {% set levels = ['None', 'Low', 'Moderate', 'High', 'Very high'] %}
-          {% set scales = {
-            'tree': [1, 15, 90, 1500],
-            'grass': [1, 5, 20, 200],
-            'weed': [1, 10, 50, 500],
-          } %}
-          {% set types = {
-            'alder_pollen': 'tree', 'birch_pollen': 'tree', 'olive_pollen': 'tree',
-            'grass_pollen': 'grass',
-            'mugwort_pollen': 'weed', 'ragweed_pollen': 'weed',
-          } %}
-          {% set ns = namespace(level=0) %}
-          {% for key, group in types.items() %}
-            {% set count = value_json.current[key] | float(0) %}
-            {% set ns.level = [ns.level, scales[group] | select('le', count) | list | count] | max %}
-          {% endfor %}
-          {{ levels[ns.level] }}
+          {% from 'pollen.jinja' import pollen_level %}
+          {{ pollen_level(value_json.current) }}
+
+      # The worst hour forecast for today. Pollen peaks in the afternoon, so
+      # the morning message uses this instead of the current level.
+      - name: Pollen today
+        unique_id: pollen_today
+        icon: mdi:flower-pollen-outline
+        value_template: >-
+          {% from 'pollen.jinja' import pollen_level %}
+          {{ pollen_level(value_json.hourly) }}
 
 automation:
   - id: pollen_update_on_start
@@ -64,3 +56,21 @@ automation:
       - action: homeassistant.update_entity
         target:
           entity_id: sensor.pollen
+
+  - id: pollen_notify_high
+    alias: Pollen - notify high days
+    description: Send a WhatsApp message in the morning when pollen will be high today.
+    triggers:
+      - trigger: time
+        at: "06:15:00"
+    conditions:
+      - condition: state
+        entity_id: sensor.pollen_today
+        state:
+          - High
+          - Very high
+    actions:
+      - action: notify.whatsapp
+        data:
+          target: !secret whatsapp_group
+          message: "Pollen: {{ states('sensor.pollen_today') | lower }} today"
