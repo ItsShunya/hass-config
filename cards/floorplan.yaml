@@ -76,6 +76,19 @@ card_mod:
     #root > hui-conditional-element > hui-state-label-element:not(:last-child) {
       margin-right: calc(0.6em - 8px);
     }
+    /* Bedside lamps */
+    #root > hui-icon-element {
+      display: grid;
+      place-items: center;
+      width: 2.2em;
+      height: 2.2em;
+      border: 1px solid color-mix(in srgb, var(--primary-text-color) 15%, transparent);
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--card-background-color) 80%, transparent);
+      color: var(--secondary-text-color);
+      font-size: max(10px, 1.4cqw);
+      --mdc-icon-size: 1.3em;
+    }
     @media (max-width: 800px) {
       ha-card {
         height: auto;

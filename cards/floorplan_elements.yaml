@@ -18,6 +18,32 @@
     - type: state-label
       entity: sensor.bedroom_temperature
 
+# Bedside lamps. The bulb takes the lamp's color when it's on, tap to change it.
+- type: icon
+  icon: mdi:lightbulb
+  entity: light.bedside_lamp_l_rgbww_light
+  tap_action:
+    action: more-info
+  style:
+    left: 31%
+    top: 44%
+  card_mod: &lamp
+    style: |
+      {% if is_state(config.entity, 'on') %}
+      ha-icon {
+        color: rgb({{ state_attr(config.entity, 'rgb_color') | join(',') }});
+      }
+      {% endif %}
+- type: icon
+  icon: mdi:lightbulb
+  entity: light.bedside_lamp_r_rgbww_light
+  tap_action:
+    action: more-info
+  style:
+    left: 37%
+    top: 44%
+  card_mod: *lamp
+
 # From the Verisure alarm's sensors.
 - type: conditional
   conditions: []
