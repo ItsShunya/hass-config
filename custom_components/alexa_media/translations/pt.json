@@ -17,6 +17,13 @@
       "unknown_error": "Erro desconhecido: {message}"
     },
     "step": {
+      "domain_mismatch": {
+        "data": {
+          "use_reported_domain": "Alterar a configuração para a região informada pela Amazon."
+        },
+        "description": "A Amazon informa que esta conta pertence a **{reported_domain} **, mas o Alexa Media Player foi configurado para usar **{configured_domain} **.\n\nVocê pode alterar para a região informada e autenticar novamente, ou desmarcar a opção e tentar continuar com a região configurada atualmente.",
+        "title": "Alexa Media Player - Incompatibilidade de região com a Amazon"
+      },
       "proxy_warning": {
         "data": {
           "proxy_warning": "Ignore e Continue - Entendo que não há suporte para problemas de login para ignorar este aviso."
@@ -56,6 +63,19 @@
     }
   },
   "entity": {
+    "button": {
+      "restart": {
+        "name": "Reiniciar"
+      }
+    },
+    "number": {
+      "display_brightness": {
+        "name": "Brilho da tela"
+      },
+      "notification_volume": {
+        "name": "Volume de alarme e notificação"
+      }
+    },
     "sensor": {
       "air_quality": {
         "name": "Qualidade do ar"
@@ -75,6 +95,9 @@
       "air_quality_volatile_organic_compounds": {
         "name": "Compostos orgânicos voláteis"
       },
+      "battery": {
+        "name": "Battery"
+      },
       "next_alarm": {
         "name": "Próximo alarme"
       },
@@ -89,6 +112,12 @@
       }
     },
     "switch": {
+      "adaptive_brightness": {
+        "name": "Brilho adaptativo"
+      },
+      "display_power": {
+        "name": "Mostrar"
+      },
       "do_not_disturb": {
         "name": "Não incomodar"
       },
@@ -130,6 +159,100 @@
     }
   },
   "services": {
+    "amazon_kids_disable": {
+      "description": "Desativa o Amazon Kids (modo infantil) para um dispositivo Echo, removendo-o de qualquer perfil infantil.",
+      "fields": {
+        "entity_id": {
+          "description": "Dispositivo Echo para desativar o Amazon Kids em",
+          "name": "Selecione o media player:"
+        }
+      },
+      "name": "Desativar Amazon Kids"
+    },
+    "amazon_kids_enable": {
+      "description": "Ativa o Amazon Kids (modo infantil) em um dispositivo Echo, atribuindo-o a um perfil infantil.",
+      "fields": {
+        "child": {
+          "description": "Perfil da criança a ser atribuído (primeiro nome ou directedId)",
+          "name": "Criança"
+        },
+        "entity_id": {
+          "description": "Dispositivo Echo para ativar o Amazon Kids",
+          "name": "Selecione o media player:"
+        }
+      },
+      "name": "Ative o Amazon Kids"
+    },
+    "create_alarm": {
+      "description": "Cria um alarme em um Echo.",
+      "fields": {
+        "alarm_type": {
+          "description": "Use a music selection currently present in cached Alexa alarms, matched by provider and name. IDs are not persisted.",
+          "name": "Alarm type (experimental)"
+        },
+        "days": {
+          "description": "Dias para repetir. Deixe vazio para um alarme único.",
+          "name": "Repita em"
+        },
+        "entity_id": {
+          "description": "Dispositivo Echo para ativar o alarme",
+          "name": "Selecione o media player:"
+        },
+        "music_entity": {
+          "name": "Music station or content (match a cached Alexa music alarm)"
+        },
+        "music_provider": {
+          "name": "Music provider (match a cached Alexa music alarm)"
+        },
+        "time": {
+          "description": "Hora em que o alarme toca",
+          "name": "Tempo"
+        }
+      },
+      "name": "Criar alarme"
+    },
+    "delete_alarm": {
+      "description": "Exclui um alarme do Echo.",
+      "fields": {
+        "alarm_id": {
+          "description": "O ID do alarme, obtido do atributo sorted_all do sensor de alarme next do dispositivo.",
+          "name": "ID do alarme"
+        },
+        "entity_id": {
+          "description": "O alarme do dispositivo Echo está ligado.",
+          "name": "Selecione o media player:"
+        }
+      },
+      "name": "Apagar alarme"
+    },
+    "disable_alarm": {
+      "description": "Desativa um alarme Echo sem excluí-lo.",
+      "fields": {
+        "alarm_id": {
+          "description": "O ID do alarme, obtido do atributo sorted_all do sensor de alarme next do dispositivo.",
+          "name": "ID do alarme"
+        },
+        "entity_id": {
+          "description": "O alarme do dispositivo Echo está ligado.",
+          "name": "Selecione o media player:"
+        }
+      },
+      "name": "Desativar alarme"
+    },
+    "enable_alarm": {
+      "description": "Ativa um alarme Echo.",
+      "fields": {
+        "alarm_id": {
+          "description": "O ID do alarme, obtido do atributo sorted_all do sensor de alarme next do dispositivo.",
+          "name": "ID do alarme"
+        },
+        "entity_id": {
+          "description": "O alarme do dispositivo Echo está ligado.",
+          "name": "Selecione o media player:"
+        }
+      },
+      "name": "Ativar alarme"
+    },
     "enable_network_discovery": {
       "description": "Reativa a descoberta de rede da Alexa para que o próximo ciclo de pesquisa redescubra os dispositivos Alexa das contas selecionadas.",
       "fields": {
@@ -164,6 +287,25 @@
       },
       "name": "Obter registos históricos"
     },
+    "list_alarms": {
+      "description": "Returns cached alarm metadata for one Echo, including music station/provider.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity"
+        }
+      },
+      "name": "List alarms (experimental)"
+    },
+    "repeat_last_message": {
+      "description": "Sends the last TTS message or announcement sent to an Echo by the notify service again. Messages are kept until Home Assistant restarts or the integration reloads.",
+      "fields": {
+        "entity_id": {
+          "description": "Echo devices to repeat the last message on",
+          "name": "Select media players:"
+        }
+      },
+      "name": "Repeat Last Message"
+    },
     "restore_volume": {
       "description": "Restaurar o nível de volume anterior no dispositivo reprodutor de média Alexa",
       "fields": {
@@ -173,6 +315,20 @@
         }
       },
       "name": "Restaurar volume anterior"
+    },
+    "skip_next_alarm": {
+      "description": "Solicitações ignorando a próxima ocorrência de um alarme Echo recorrente ativo. Verifique o próximo sensor de alarme após a atualização antes de chamar novamente.",
+      "fields": {
+        "alarm_id": {
+          "description": "O ID do alarme, obtido do atributo sorted_all do sensor de alarme next do dispositivo.",
+          "name": "ID do alarme"
+        },
+        "entity_id": {
+          "description": "O alarme do dispositivo Echo está ligado.",
+          "name": "Selecione o media player:"
+        }
+      },
+      "name": "Ignorar o próximo alarme"
     },
     "update_last_called": {
       "description": "Força a atualização do dispositivo de echo last_called para cada conta Alexa.",

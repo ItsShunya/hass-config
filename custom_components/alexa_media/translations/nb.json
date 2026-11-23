@@ -17,6 +17,13 @@
       "unknown_error": "Ukjent feil: {message}"
     },
     "step": {
+      "domain_mismatch": {
+        "data": {
+          "use_reported_domain": "Endre konfigurasjon til Amazon-rapportert region"
+        },
+        "description": "Amazon rapporterer at denne kontoen tilhører **{reported_domain} **, men Alexa Media Player ble konfigurert til å bruke **{configured_domain} **.\n\nDu kan endre til den rapporterte regionen og autentisere på nytt, eller fjerne merkingen og forsøke å fortsette med den nåværende konfigurerte regionen.",
+        "title": "Alexa Media Player – Uoverensstemmelse mellom Amazon-regionen"
+      },
       "proxy_warning": {
         "data": {
           "proxy_warning": "Ignorer og fortsett – jeg forstår at det ikke gis støtte for innloggingsproblemer når denne advarselen omgås."
@@ -56,6 +63,19 @@
     }
   },
   "entity": {
+    "button": {
+      "restart": {
+        "name": "Start på nytt"
+      }
+    },
+    "number": {
+      "display_brightness": {
+        "name": "Skjermens lysstyrke"
+      },
+      "notification_volume": {
+        "name": "Alarm- og varslingsvolum"
+      }
+    },
     "sensor": {
       "air_quality": {
         "name": "Luftkvalitet"
@@ -75,6 +95,9 @@
       "air_quality_volatile_organic_compounds": {
         "name": "Flyktige organiske forbindelser"
       },
+      "battery": {
+        "name": "Battery"
+      },
       "next_alarm": {
         "name": "Neste alarm"
       },
@@ -89,6 +112,12 @@
       }
     },
     "switch": {
+      "adaptive_brightness": {
+        "name": "Adaptiv lysstyrke"
+      },
+      "display_power": {
+        "name": "Vis"
+      },
       "do_not_disturb": {
         "name": "Ikke forstyrr"
       },
@@ -130,6 +159,100 @@
     }
   },
   "services": {
+    "amazon_kids_disable": {
+      "description": "Slår av Amazon Kids (barnemodus) for en Echo ved å fjerne tilordningen fra en hvilken som helst barneprofil.",
+      "fields": {
+        "entity_id": {
+          "description": "Echo-enhet for å deaktivere Amazon Kids på",
+          "name": "Velg mediespiller:"
+        }
+      },
+      "name": "Deaktiver Amazon Kids"
+    },
+    "amazon_kids_enable": {
+      "description": "Slår på Amazon Kids (barnemodus) for en Echo ved å tilordne den til en barneprofil.",
+      "fields": {
+        "child": {
+          "description": "Barneprofil som skal tilordnes (fornavn eller directedId)",
+          "name": "Barn"
+        },
+        "entity_id": {
+          "description": "Echo-enhet for å aktivere Amazon Kids",
+          "name": "Velg mediespiller:"
+        }
+      },
+      "name": "Aktiver Amazon Kids"
+    },
+    "create_alarm": {
+      "description": "Oppretter en alarm på et ekko.",
+      "fields": {
+        "alarm_type": {
+          "description": "Use a music selection currently present in cached Alexa alarms, matched by provider and name. IDs are not persisted.",
+          "name": "Alarm type (experimental)"
+        },
+        "days": {
+          "description": "Dager å gjenta på. La stå tomt for en engangsalarm.",
+          "name": "Gjenta på"
+        },
+        "entity_id": {
+          "description": "Ekko-enhet for å stille inn alarmen",
+          "name": "Velg mediespiller:"
+        },
+        "music_entity": {
+          "name": "Music station or content (match a cached Alexa music alarm)"
+        },
+        "music_provider": {
+          "name": "Music provider (match a cached Alexa music alarm)"
+        },
+        "time": {
+          "description": "Tidspunktet da alarmen ringer",
+          "name": "Tid"
+        }
+      },
+      "name": "Opprett alarm"
+    },
+    "delete_alarm": {
+      "description": "Sletter en ekkoalarm.",
+      "fields": {
+        "alarm_id": {
+          "description": "Alarmens ID, fra sorted_all-attributtet til enhetens neste alarmsensor",
+          "name": "Alarm-ID"
+        },
+        "entity_id": {
+          "description": "Echo-enhet, alarmen er på",
+          "name": "Velg mediespiller:"
+        }
+      },
+      "name": "Slett alarm"
+    },
+    "disable_alarm": {
+      "description": "Slår av en ekkoalarm uten å slette den.",
+      "fields": {
+        "alarm_id": {
+          "description": "Alarmens ID, fra sorted_all-attributtet til enhetens neste alarmsensor",
+          "name": "Alarm-ID"
+        },
+        "entity_id": {
+          "description": "Echo-enhet, alarmen er på",
+          "name": "Velg mediespiller:"
+        }
+      },
+      "name": "Deaktiver alarmen"
+    },
+    "enable_alarm": {
+      "description": "Slår på en ekkoalarm.",
+      "fields": {
+        "alarm_id": {
+          "description": "Alarmens ID, fra sorted_all-attributtet til enhetens neste alarmsensor",
+          "name": "Alarm-ID"
+        },
+        "entity_id": {
+          "description": "Echo-enhet, alarmen er på",
+          "name": "Velg mediespiller:"
+        }
+      },
+      "name": "Aktiver alarm"
+    },
     "enable_network_discovery": {
       "description": "Aktiverer Alexa-nettverksoppdagelse på nytt, slik at neste avstemningssyklus vil oppdage Alexa-enheter på nytt for de valgte kontoene.",
       "fields": {
@@ -164,6 +287,25 @@
       },
       "name": "Få historikk"
     },
+    "list_alarms": {
+      "description": "Returns cached alarm metadata for one Echo, including music station/provider.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity"
+        }
+      },
+      "name": "List alarms (experimental)"
+    },
+    "repeat_last_message": {
+      "description": "Sends the last TTS message or announcement sent to an Echo by the notify service again. Messages are kept until Home Assistant restarts or the integration reloads.",
+      "fields": {
+        "entity_id": {
+          "description": "Echo devices to repeat the last message on",
+          "name": "Select media players:"
+        }
+      },
+      "name": "Repeat Last Message"
+    },
     "restore_volume": {
       "description": "Gjenopprett forrige volumnivå på Alexa mediespillerenhet",
       "fields": {
@@ -173,6 +315,20 @@
         }
       },
       "name": "Gjenopprett forrige volum"
+    },
+    "skip_next_alarm": {
+      "description": "Ber om å hoppe over neste forekomst av en aktiv, gjentakende ekkoalarm. Sjekk neste alarmsensor etter at den oppdateres før du ringer på nytt.",
+      "fields": {
+        "alarm_id": {
+          "description": "Alarmens ID, fra sorted_all-attributtet til enhetens neste alarmsensor",
+          "name": "Alarm-ID"
+        },
+        "entity_id": {
+          "description": "Echo-enhet, alarmen er på",
+          "name": "Velg mediespiller:"
+        }
+      },
+      "name": "Hopp over neste alarm"
     },
     "update_last_called": {
       "description": "Tvinger frem oppdatering av sist oppringte echo-enhet for hver Alexa-konto.",

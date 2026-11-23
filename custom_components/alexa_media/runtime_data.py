@@ -23,7 +23,7 @@ from .const import (
 if TYPE_CHECKING:
     from alexapy import AlexaLogin, HTTP2EchoClient
 
-    from .alexa_entity import AlexaEntityData
+    from .coordinator import AlexaMediaCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class AlexaRuntimeData:
     # Core components (optional to support partial initialisation)
     login_obj: AlexaLogin | None = None
     config_entry: ConfigEntry | None = None
-    coordinator: DataUpdateCoordinator[AlexaEntityData] | None = None
+    coordinator: AlexaMediaCoordinator | None = None
 
     # HTTP2 Push connection
     http2: HTTP2EchoClient | None = None
@@ -71,6 +71,7 @@ class AlexaRuntimeData:
             "binary_sensor": [],
             "alarm_control_panel": {},
             "smart_switch": [],
+            "button": {},
         }
     )
     excluded: dict[str, Any] = field(default_factory=dict)
@@ -116,27 +117,30 @@ class AlexaRuntimeData:
                 CONF_SCAN_INTERVAL,
                 DEFAULT_SCAN_INTERVAL,
             )
+            from .helpers import config_entry_option
 
             self.options = {
-                CONF_INCLUDE_DEVICES: self.config_entry.data.get(
-                    CONF_INCLUDE_DEVICES, ""
+                CONF_INCLUDE_DEVICES: config_entry_option(
+                    self.config_entry, CONF_INCLUDE_DEVICES, ""
                 ),
-                CONF_EXCLUDE_DEVICES: self.config_entry.data.get(
-                    CONF_EXCLUDE_DEVICES, ""
+                CONF_EXCLUDE_DEVICES: config_entry_option(
+                    self.config_entry, CONF_EXCLUDE_DEVICES, ""
                 ),
-                CONF_QUEUE_DELAY: self.config_entry.data.get(
-                    CONF_QUEUE_DELAY, DEFAULT_QUEUE_DELAY
+                CONF_QUEUE_DELAY: config_entry_option(
+                    self.config_entry, CONF_QUEUE_DELAY, DEFAULT_QUEUE_DELAY
                 ),
-                CONF_SCAN_INTERVAL: self.config_entry.data.get(
-                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                CONF_SCAN_INTERVAL: config_entry_option(
+                    self.config_entry, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
                 ),
-                CONF_PUBLIC_URL: self.config_entry.data.get(
-                    CONF_PUBLIC_URL, DEFAULT_PUBLIC_URL
+                CONF_PUBLIC_URL: config_entry_option(
+                    self.config_entry, CONF_PUBLIC_URL, DEFAULT_PUBLIC_URL
                 ),
-                CONF_EXTENDED_ENTITY_DISCOVERY: self.config_entry.data.get(
-                    CONF_EXTENDED_ENTITY_DISCOVERY, DEFAULT_EXTENDED_ENTITY_DISCOVERY
+                CONF_EXTENDED_ENTITY_DISCOVERY: config_entry_option(
+                    self.config_entry,
+                    CONF_EXTENDED_ENTITY_DISCOVERY,
+                    DEFAULT_EXTENDED_ENTITY_DISCOVERY,
                 ),
-                CONF_DEBUG: self.config_entry.data.get(CONF_DEBUG, False),
+                CONF_DEBUG: config_entry_option(self.config_entry, CONF_DEBUG, False),
             }
 
     @property

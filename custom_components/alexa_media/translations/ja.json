@@ -17,6 +17,13 @@
       "unknown_error": "不明なエラー：{message}"
     },
     "step": {
+      "domain_mismatch": {
+        "data": {
+          "use_reported_domain": "Change configuration to the Amazon-reported region"
+        },
+        "description": "Amazon reports that this account belongs to **{reported_domain}**, but Alexa Media Player was configured to use **{configured_domain}**.\n\nYou can change to the reported region and authenticate again, or deselect and attempt to continue with your currently configured region.",
+        "title": "Alexa Media Player - Amazon Region Mismatch"
+      },
       "proxy_warning": {
         "data": {
           "proxy_warning": "無視して続行 - この警告を回避することで、ログイン問題に関するサポートはされないことを承知しています。"
@@ -56,6 +63,19 @@
     }
   },
   "entity": {
+    "button": {
+      "restart": {
+        "name": "Restart"
+      }
+    },
+    "number": {
+      "display_brightness": {
+        "name": "Display brightness"
+      },
+      "notification_volume": {
+        "name": "Alarm and notification volume"
+      }
+    },
     "sensor": {
       "air_quality": {
         "name": "Air quality"
@@ -73,7 +93,10 @@
         "name": "Particulate matter"
       },
       "air_quality_volatile_organic_compounds": {
-        "name": "Volatile organic compounds"
+        "name": "Volatile organic compounds index"
+      },
+      "battery": {
+        "name": "Battery"
       },
       "next_alarm": {
         "name": "Next alarm"
@@ -89,6 +112,12 @@
       }
     },
     "switch": {
+      "adaptive_brightness": {
+        "name": "Adaptive brightness"
+      },
+      "display_power": {
+        "name": "Display"
+      },
       "do_not_disturb": {
         "name": "Do not disturb"
       },
@@ -130,6 +159,100 @@
     }
   },
   "services": {
+    "amazon_kids_disable": {
+      "description": "Turns off Amazon Kids (child mode) for an Echo by unassigning it from any child profile.",
+      "fields": {
+        "entity_id": {
+          "description": "Echo device to disable Amazon Kids on",
+          "name": "Select media player:"
+        }
+      },
+      "name": "Disable Amazon Kids"
+    },
+    "amazon_kids_enable": {
+      "description": "Turns on Amazon Kids (child mode) for an Echo by assigning it to a child profile.",
+      "fields": {
+        "child": {
+          "description": "Child profile to assign (first name or directedId)",
+          "name": "Child"
+        },
+        "entity_id": {
+          "description": "Echo device to enable Amazon Kids on",
+          "name": "Select media player:"
+        }
+      },
+      "name": "Enable Amazon Kids"
+    },
+    "create_alarm": {
+      "description": "Creates an alarm on an Echo.",
+      "fields": {
+        "alarm_type": {
+          "description": "Use a music selection currently present in cached Alexa alarms, matched by provider and name. IDs are not persisted.",
+          "name": "Alarm type (experimental)"
+        },
+        "days": {
+          "description": "Select today or tomorrow for a one-off alarm; weekdays, weekends or everyday for a repeating alarm; or select specific weekdays. Use presets alone. Leave empty for the next occurrence of the time.",
+          "name": "Alarm days"
+        },
+        "entity_id": {
+          "description": "Echo device to set the alarm on",
+          "name": "Select media player:"
+        },
+        "music_entity": {
+          "name": "Music station or content (match a cached Alexa music alarm)"
+        },
+        "music_provider": {
+          "name": "Music provider (match a cached Alexa music alarm)"
+        },
+        "time": {
+          "description": "Time the alarm rings",
+          "name": "Time"
+        }
+      },
+      "name": "Create alarm"
+    },
+    "delete_alarm": {
+      "description": "Deletes an Echo alarm.",
+      "fields": {
+        "alarm_id": {
+          "description": "The alarm's id, from the sorted_all attribute of the device's next alarm sensor",
+          "name": "Alarm ID"
+        },
+        "entity_id": {
+          "description": "Echo device the alarm is on",
+          "name": "Select media player:"
+        }
+      },
+      "name": "Delete alarm"
+    },
+    "disable_alarm": {
+      "description": "Turns off an Echo alarm without deleting it.",
+      "fields": {
+        "alarm_id": {
+          "description": "The alarm's id, from the sorted_all attribute of the device's next alarm sensor",
+          "name": "Alarm ID"
+        },
+        "entity_id": {
+          "description": "Echo device the alarm is on",
+          "name": "Select media player:"
+        }
+      },
+      "name": "Disable alarm"
+    },
+    "enable_alarm": {
+      "description": "Turns on an Echo alarm.",
+      "fields": {
+        "alarm_id": {
+          "description": "The alarm's id, from the sorted_all attribute of the device's next alarm sensor",
+          "name": "Alarm ID"
+        },
+        "entity_id": {
+          "description": "Echo device the alarm is on",
+          "name": "Select media player:"
+        }
+      },
+      "name": "Enable alarm"
+    },
     "enable_network_discovery": {
       "description": "Alexa ネットワーク検出を再度有効にすると、次のポーリングサイクルで、選択したアカウントの Alexa デバイスが再検出されます。",
       "fields": {
@@ -164,6 +287,25 @@
       },
       "name": "履歴レコードを取得する"
     },
+    "list_alarms": {
+      "description": "Returns cached alarm metadata for one Echo, including music station/provider.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity"
+        }
+      },
+      "name": "List alarms (experimental)"
+    },
+    "repeat_last_message": {
+      "description": "Sends the last TTS message or announcement sent to an Echo by the notify service again. Messages are kept until Home Assistant restarts or the integration reloads.",
+      "fields": {
+        "entity_id": {
+          "description": "Echo devices to repeat the last message on",
+          "name": "Select media players:"
+        }
+      },
+      "name": "Repeat Last Message"
+    },
     "restore_volume": {
       "description": "Alexaメディアプレーヤーデバイスで以前の音量レベルを復元する",
       "fields": {
@@ -173,6 +315,20 @@
         }
       },
       "name": "以前のボリュームを復元"
+    },
+    "skip_next_alarm": {
+      "description": "Requests skipping the next occurrence of an active recurring Echo alarm. Check the next alarm sensor after it refreshes before calling again.",
+      "fields": {
+        "alarm_id": {
+          "description": "The alarm's id, from the sorted_all attribute of the device's next alarm sensor",
+          "name": "Alarm ID"
+        },
+        "entity_id": {
+          "description": "Echo device the alarm is on",
+          "name": "Select media player:"
+        }
+      },
+      "name": "Skip next alarm"
     },
     "update_last_called": {
       "description": "各Alexaアカウントの最後に呼び出されたEchoデバイスを強制的に更新します。",

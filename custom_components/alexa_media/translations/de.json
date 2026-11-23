@@ -17,6 +17,13 @@
       "unknown_error": "Unbekannter Fehler: {message}"
     },
     "step": {
+      "domain_mismatch": {
+        "data": {
+          "use_reported_domain": "Ändern Sie die Konfiguration auf die von Amazon gemeldete Region."
+        },
+        "description": "Amazon meldet, dass dieses Konto ** gehört.{reported_domain} **, aber der Alexa Media Player war so konfiguriert, dass er ** verwendet.{configured_domain} **.\n\nSie können zur gemeldeten Region wechseln und sich erneut authentifizieren oder die Auswahl aufheben und versuchen, mit Ihrer aktuell konfigurierten Region fortzufahren.",
+        "title": "Alexa Media Player – Amazon-Regionskonflikt"
+      },
       "proxy_warning": {
         "data": {
           "proxy_warning": "Ignorieren und Fortfahren - Ich verstehe, dass keine Unterstützung für Anmeldeprobleme beim Umgehen dieser Warnung angeboten wird."
@@ -42,7 +49,7 @@
           "otp_secret": "52-stelliger Authenticator-App Schlüssel für Amazon 2SV",
           "password": "Passwort",
           "public_url": "Öffentliche URL, die mit extern gehosteten Diensten geteilt wird",
-          "queue_delay": "Verzögerung beim Zusammenführen mehrerer Befehle in die Warteschlange (Sekunden)",
+          "queue_delay": "Verzögerung beim Zusammenführen mehrerer Befehle in einer Warteschlange (Sekunden)",
           "scan_interval": "Geplantes Abfrageintervall (Sekunden)",
           "securitycode": "Einmalpasswort (OTP)",
           "should_get_network": "Entdecken Sie das Alexa-Netzwerk",
@@ -56,6 +63,19 @@
     }
   },
   "entity": {
+    "button": {
+      "restart": {
+        "name": "Neustart"
+      }
+    },
+    "number": {
+      "display_brightness": {
+        "name": "Displayhelligkeit"
+      },
+      "notification_volume": {
+        "name": "Alarm- und Benachrichtigungslautstärke"
+      }
+    },
     "sensor": {
       "air_quality": {
         "name": "Luftqualität"
@@ -75,6 +95,9 @@
       "air_quality_volatile_organic_compounds": {
         "name": "Flüchtige organische Verbindungen"
       },
+      "battery": {
+        "name": "Battery"
+      },
       "next_alarm": {
         "name": "Nächster Alarm"
       },
@@ -89,6 +112,12 @@
       }
     },
     "switch": {
+      "adaptive_brightness": {
+        "name": "Adaptive Helligkeit"
+      },
+      "display_power": {
+        "name": "Anzeige"
+      },
       "do_not_disturb": {
         "name": "Bitte nicht stören"
       },
@@ -111,11 +140,11 @@
       "init": {
         "data": {
           "debug": "Erweitertes Debugging",
-          "exclude_devices": "oder Diese Geräte von allen ausschließen (durch Komma getrennt)",
+          "exclude_devices": "oder diese Geräte von allen ausschließen (durch Komma getrennt)",
           "extended_entity_discovery": "Fügen Sie zusätzliche Sensoren, Schalter und Leuchten hinzu.",
           "include_devices": "Nur diese Geräte angeben (durch Komma getrennt)",
-          "otp_secret": "52-stelliger Authenticator-App Schlüssel für Amazon 2SV",
-          "public_url": "Öffentliche URL, die mit externen gehosteten Diensten geteilt wird",
+          "otp_secret": "52-stelliger Authenticator-App-Schlüssel für Amazon 2SV",
+          "public_url": "Öffentliche URL, die mit extern gehosteten Diensten geteilt wird",
           "queue_delay": "Verzögerung beim Zusammenführen mehrerer Befehle in die Warteschlange (Sekunden)",
           "scan_interval": "Geplante Abfragehäufigkeit (Sekunden)",
           "should_get_network": "Entdecken Sie das Alexa-Netzwerk"
@@ -124,12 +153,106 @@
           "debug": "Ermöglicht eine sehr ausführliche Protokollierung auf Trace-Ebene für die erweiterte Fehlerbehebung. \n Aufgrund des erhöhten Protokollvolumens wird dies für den Normalbetrieb nicht empfohlen. \n Stellen Sie sicher, dass die Protokollierungsstufe auf DEBUG eingestellt ist, um die vollständige Ausgabe zu erhalten.",
           "otp_secret": "Beispiel: 35T5 LQSY I5IO 3EFQ LGAJ I6YB JWBY JJPR PYT7 XPPW IDAK SQBJ CVXA"
         },
-        "description": "* Erforderliche Angaben",
+        "description": "* Erforderliche Angabe",
         "title": "Alexa Media Player - Rekonfiguration"
       }
     }
   },
   "services": {
+    "amazon_kids_disable": {
+      "description": "Deaktiviert Amazon Kids (Kindermodus) für ein Echo-Gerät, indem es von allen Kinderprofilen entfernt wird.",
+      "fields": {
+        "entity_id": {
+          "description": "Echo-Gerät zum Deaktivieren von Amazon Kids",
+          "name": "Medienplayer auswählen:"
+        }
+      },
+      "name": "Amazon Kids deaktivieren"
+    },
+    "amazon_kids_enable": {
+      "description": "Aktiviert Amazon Kids (Kindermodus) für ein Echo-Gerät, indem es einem Kinderprofil zugewiesen wird.",
+      "fields": {
+        "child": {
+          "description": "Kinderprofil zuweisen (Vorname oder Directed-ID)",
+          "name": "Kind"
+        },
+        "entity_id": {
+          "description": "Echo-Gerät zum Aktivieren von Amazon Kids",
+          "name": "Medienplayer auswählen:"
+        }
+      },
+      "name": "Amazon Kids aktivieren"
+    },
+    "create_alarm": {
+      "description": "Erzeugt einen Alarm auf einem Echo-Gerät.",
+      "fields": {
+        "alarm_type": {
+          "description": "Use a music selection currently present in cached Alexa alarms, matched by provider and name. IDs are not persisted.",
+          "name": "Alarm type (experimental)"
+        },
+        "days": {
+          "description": "Tage, an denen der Alarm wiederholt werden soll. Für einen einmaligen Alarm leer lassen.",
+          "name": "Wiederholen Sie dies am"
+        },
+        "entity_id": {
+          "description": "Echo-Gerät zum Einstellen des Alarms",
+          "name": "Medienplayer auswählen:"
+        },
+        "music_entity": {
+          "name": "Music station or content (match a cached Alexa music alarm)"
+        },
+        "music_provider": {
+          "name": "Music provider (match a cached Alexa music alarm)"
+        },
+        "time": {
+          "description": "Zeit bis zum Klingeln des Weckers",
+          "name": "Zeit"
+        }
+      },
+      "name": "Alarm erstellen"
+    },
+    "delete_alarm": {
+      "description": "Löscht einen Echo-Alarm.",
+      "fields": {
+        "alarm_id": {
+          "description": "Die Alarm-ID, aus dem Attribut „sorted_all“ des nächsten Alarmsensors des Geräts.",
+          "name": "Alarm-ID"
+        },
+        "entity_id": {
+          "description": "Echo-Gerät, der Alarm ist eingeschaltet",
+          "name": "Medienplayer auswählen:"
+        }
+      },
+      "name": "Alarm löschen"
+    },
+    "disable_alarm": {
+      "description": "Schaltet einen Echo-Alarm aus, ohne ihn zu löschen.",
+      "fields": {
+        "alarm_id": {
+          "description": "Die Alarm-ID, aus dem Attribut „sorted_all“ des nächsten Alarmsensors des Geräts.",
+          "name": "Alarm-ID"
+        },
+        "entity_id": {
+          "description": "Echo-Gerät, der Alarm ist eingeschaltet",
+          "name": "Medienplayer auswählen:"
+        }
+      },
+      "name": "Alarm deaktivieren"
+    },
+    "enable_alarm": {
+      "description": "Schaltet einen Echo-Wecker ein.",
+      "fields": {
+        "alarm_id": {
+          "description": "Die Alarm-ID, aus dem Attribut „sorted_all“ des nächsten Alarmsensors des Geräts.",
+          "name": "Alarm-ID"
+        },
+        "entity_id": {
+          "description": "Echo-Gerät, der Alarm ist eingeschaltet",
+          "name": "Medienplayer auswählen:"
+        }
+      },
+      "name": "Alarm aktivieren"
+    },
     "enable_network_discovery": {
       "description": "Aktiviert die Alexa-Netzwerkerkennung erneut, sodass beim nächsten Abfragezyklus die Alexa-Geräte für die ausgewählten Konten erneut erkannt werden.",
       "fields": {
@@ -164,6 +287,25 @@
       },
       "name": "Verlaufsdatensätze abrufen"
     },
+    "list_alarms": {
+      "description": "Returns cached alarm metadata for one Echo, including music station/provider.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity"
+        }
+      },
+      "name": "List alarms (experimental)"
+    },
+    "repeat_last_message": {
+      "description": "Sends the last TTS message or announcement sent to an Echo by the notify service again. Messages are kept until Home Assistant restarts or the integration reloads.",
+      "fields": {
+        "entity_id": {
+          "description": "Echo devices to repeat the last message on",
+          "name": "Select media players:"
+        }
+      },
+      "name": "Repeat Last Message"
+    },
     "restore_volume": {
       "description": "Vorherige Lautstärke auf dem Alexa-Mediaplayer-Gerät wiederherstellen",
       "fields": {
@@ -174,8 +316,22 @@
       },
       "name": "Vorherige Lautstärke wiederherstellen"
     },
+    "skip_next_alarm": {
+      "description": "Anfragen, die das nächste Auftreten eines aktiven, wiederkehrenden Echo-Alarms überspringen. Überprüfen Sie den nächsten Alarmsensor nach der Aktualisierung, bevor Sie ihn erneut aufrufen.",
+      "fields": {
+        "alarm_id": {
+          "description": "Die Alarm-ID, aus dem Attribut „sorted_all“ des nächsten Alarmsensors des Geräts.",
+          "name": "Alarm-ID"
+        },
+        "entity_id": {
+          "description": "Echo-Gerät, der Alarm ist eingeschaltet",
+          "name": "Medienplayer auswählen:"
+        }
+      },
+      "name": "Nächsten Alarm überspringen"
+    },
     "update_last_called": {
-      "description": "Erzwinge Updates der zuletzt aufgerufenen Echo Geräte für jeden Alexa Account.",
+      "description": "Erzwingt eine Aktualisierung des zuletzt aufgerufenen Echo-Geräts für jedes Alexa-Konto.",
       "fields": {
         "email": {
           "description": "Liste der zu aktualisierenden Alexa-Konten. Wenn leer, werden alle bekannten Konten aktualisiert.",

@@ -148,6 +148,38 @@ def is_air_quality_sensor(appliance: dict[str, Any]) -> bool:
     )
 
 
+def get_led_indicator_instance(appliance: dict[str, Any]) -> str | None:
+    """Find a readable, writable LED toggle by its discovery resources."""
+    for cap in appliance.get("capabilities", []):
+        if cap.get("interfaceName") != "Alexa.ToggleController":
+            continue
+        props = cap.get("properties") or {}
+        if not isinstance(props, dict):
+            continue
+        if props.get("retrievable") is not True or props.get("readOnly") is not False:
+            continue
+        supported = props.get("supported")
+        if not isinstance(supported, list) or not any(
+            isinstance(prop, dict) and prop.get("name") == "toggleState"
+            for prop in supported
+        ):
+            continue
+        instance = cap.get("instance")
+        if not isinstance(instance, (str, int)) or isinstance(instance, bool):
+            continue
+        if not str(instance):
+            continue
+        for friendly in safe_get(cap, ["resources", "friendlyNames"], []):
+            text = safe_get(friendly, ["value", "text"], "")
+            if isinstance(text, str) and text.strip().casefold() in {
+                "enable led indicator",
+                "led indicator",
+                "led",
+            }:
+                return str(instance)
+    return None
+
+
 def is_light(appliance: dict[str, Any]) -> bool:
     """Is the given appliance a light controlled locally by an Echo."""
     return (
@@ -260,6 +292,7 @@ class AlexaAIAQMEntity(AlexaEntity):
 
     device_serial: str
     sensors: list[dict[str, str]]
+    led_indicator_instance: str | None
 
 
 class AlexaBinaryEntity(AlexaEntity):
@@ -461,13 +494,30 @@ def parse_alexa_entities(
                         asset_id = entry.get("assetId")
 
                     # Only treat Alexa.AirQuality assetIds as real AIAQM sensors.
-                    # Text-only friendlyNames (e.g. @type "text") must be ignored to avoid
-                    # creating extra sensors such as PM10.
+                    # Preserve existing asset-based sensor types and unique IDs.
                     if isinstance(asset_id, str) and asset_id.startswith(
                         "Alexa.AirQuality."
                     ):
                         sensor_type = asset_id
                         break
+
+                # PM10 is advertised by a text resource rather than an assetId.
+                # Match the metric, never the numeric instance (which can vary).
+                if not sensor_type and any(
+                    isinstance(entry, dict)
+                    and isinstance(entry.get("value"), dict)
+                    and isinstance(entry["value"].get("text"), str)
+                    and entry["value"]["text"].strip().casefold()
+                    == "particulate matter pm10"
+                    for entry in friendly
+                ):
+                    properties = cap.get("properties") or {}
+                    if (
+                        properties.get("retrievable") is True
+                        and properties.get("readOnly") is True
+                    ):
+                        sensor_type = "Alexa.AirQuality.ParticulateMatterPM10"
+                        unit = "Alexa.Unit.Density.MicroGramsPerCubicMeter"
 
                 if not sensor_type:
                     continue
@@ -484,6 +534,7 @@ def parse_alexa_entities(
                 **processed_appliance,
                 "device_serial": device_serial,
                 "sensors": sensors,
+                "led_indicator_instance": get_led_indicator_instance(appliance),
             }
             aiaqm_entities.append(aiaqm_entity)
 

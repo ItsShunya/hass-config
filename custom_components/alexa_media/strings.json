@@ -39,6 +39,13 @@
           "otp_secret": "Example: 35T5 LQSY I5IO 3EFQ LGAJ I6YB JWBY JJPR PYT7 XPPW IDAK SQBJ CVXA"
         }
       },
+      "domain_mismatch": {
+        "title": "Alexa Media Player - Amazon Region Mismatch",
+        "description": "Amazon reports that this account belongs to **{reported_domain}**, but Alexa Media Player was configured to use **{configured_domain}**.\n\nYou can change to the reported region and authenticate again, or deselect and attempt to continue with your currently configured region.",
+        "data": {
+          "use_reported_domain": "Change configuration to the Amazon-reported region"
+        }
+      },
       "proxy_warning": {
         "data": {
           "proxy_warning": "Ignore and Continue - I understand that no support for login issues are provided for bypassing this warning."
@@ -132,9 +139,149 @@
           "description": "Optional Alexa account email or list of emails. If empty, all known accounts will be refreshed."
         }
       }
+    },
+    "amazon_kids_enable": {
+      "name": "Enable Amazon Kids",
+      "description": "Turns on Amazon Kids (child mode) for an Echo by assigning it to a child profile.",
+      "fields": {
+        "entity_id": {
+          "name": "Select media player:",
+          "description": "Echo device to enable Amazon Kids on"
+        },
+        "child": {
+          "name": "Child",
+          "description": "Child profile to assign (first name or directedId)"
+        }
+      }
+    },
+    "amazon_kids_disable": {
+      "name": "Disable Amazon Kids",
+      "description": "Turns off Amazon Kids (child mode) for an Echo by unassigning it from any child profile.",
+      "fields": {
+        "entity_id": {
+          "name": "Select media player:",
+          "description": "Echo device to disable Amazon Kids on"
+        }
+      }
+    },
+    "create_alarm": {
+      "name": "Create alarm",
+      "description": "Creates an alarm on an Echo.",
+      "fields": {
+        "entity_id": {
+          "name": "Select media player:",
+          "description": "Echo device to set the alarm on"
+        },
+        "time": {
+          "name": "Time",
+          "description": "Time the alarm rings"
+        },
+        "days": {
+          "name": "Alarm days",
+          "description": "Select today or tomorrow for a one-off alarm; weekdays, weekends or everyday for a repeating alarm; or select specific weekdays. Use presets alone. Leave empty for the next occurrence of the time."
+        },
+        "alarm_type": {
+          "name": "Alarm type (experimental)",
+          "description": "Use a music selection currently present in cached Alexa alarms, matched by provider and name. IDs are not persisted."
+        },
+        "music_provider": {
+          "name": "Music provider (match a cached Alexa music alarm)"
+        },
+        "music_entity": {
+          "name": "Music station or content (match a cached Alexa music alarm)"
+        }
+      }
+    },
+    "enable_alarm": {
+      "name": "Enable alarm",
+      "description": "Turns on an Echo alarm.",
+      "fields": {
+        "entity_id": {
+          "name": "Select media player:",
+          "description": "Echo device the alarm is on"
+        },
+        "alarm_id": {
+          "name": "Alarm ID",
+          "description": "The alarm's id, from the sorted_all attribute of the device's next alarm sensor"
+        }
+      }
+    },
+    "disable_alarm": {
+      "name": "Disable alarm",
+      "description": "Turns off an Echo alarm without deleting it.",
+      "fields": {
+        "entity_id": {
+          "name": "Select media player:",
+          "description": "Echo device the alarm is on"
+        },
+        "alarm_id": {
+          "name": "Alarm ID",
+          "description": "The alarm's id, from the sorted_all attribute of the device's next alarm sensor"
+        }
+      }
+    },
+    "skip_next_alarm": {
+      "name": "Skip next alarm",
+      "description": "Requests skipping the next occurrence of an active recurring Echo alarm. Check the next alarm sensor after it refreshes before calling again.",
+      "fields": {
+        "entity_id": {
+          "name": "Select media player:",
+          "description": "Echo device the alarm is on"
+        },
+        "alarm_id": {
+          "name": "Alarm ID",
+          "description": "The alarm's id, from the sorted_all attribute of the device's next alarm sensor"
+        }
+      }
+    },
+    "delete_alarm": {
+      "name": "Delete alarm",
+      "description": "Deletes an Echo alarm.",
+      "fields": {
+        "entity_id": {
+          "name": "Select media player:",
+          "description": "Echo device the alarm is on"
+        },
+        "alarm_id": {
+          "name": "Alarm ID",
+          "description": "The alarm's id, from the sorted_all attribute of the device's next alarm sensor"
+        }
+      }
+    },
+    "list_alarms": {
+      "name": "List alarms (experimental)",
+      "description": "Returns cached alarm metadata for one Echo, including music station/provider.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity"
+        }
+      }
+    },
+    "repeat_last_message": {
+      "name": "Repeat Last Message",
+      "description": "Sends the last TTS message or announcement sent to an Echo by the notify service again. Messages are kept until Home Assistant restarts or the integration reloads.",
+      "fields": {
+        "entity_id": {
+          "name": "Select media players:",
+          "description": "Echo devices to repeat the last message on"
+        }
+      }
     }
   },
   "entity": {
+    "button": {
+      "restart": {
+        "name": "Restart"
+      }
+    },
+    "number": {
+      "notification_volume": {
+        "name": "Alarm and notification volume"
+      },
+      "display_brightness": {
+        "name": "Display brightness"
+      }
+    },
     "switch": {
       "do_not_disturb": {
         "name": "Do not disturb"
@@ -144,11 +291,20 @@
       },
       "repeat": {
         "name": "Repeat"
+      },
+      "display_power": {
+        "name": "Display"
+      },
+      "adaptive_brightness": {
+        "name": "Adaptive brightness"
       }
     },
     "sensor": {
       "temperature": {
         "name": "Temperature"
+      },
+      "battery": {
+        "name": "Battery"
       },
       "air_quality": {
         "name": "Air quality"
@@ -166,7 +322,7 @@
         "name": "Particulate matter"
       },
       "air_quality_volatile_organic_compounds": {
-        "name": "Volatile organic compounds"
+        "name": "Volatile organic compounds index"
       },
       "next_alarm": {
         "name": "Next alarm"

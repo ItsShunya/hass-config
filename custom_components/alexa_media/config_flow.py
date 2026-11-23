@@ -15,6 +15,7 @@ from functools import reduce
 import html as html_lib
 import logging
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 from aiohttp import ClientConnectionError, ClientSession, InvalidURL, web, web_response
 from aiohttp.web_exceptions import HTTPBadRequest
@@ -42,6 +43,7 @@ from homeassistant.const import (
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult, UnknownFlow
 from homeassistant.exceptions import Unauthorized
+from homeassistant.helpers.httpx_client import create_async_httpx_client
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.util import slugify
 import httpx
@@ -49,6 +51,7 @@ import voluptuous as vol
 from yarl import URL
 
 from .const import (
+    AMAZON_DOMAINS,
     AUTH_CALLBACK_NAME,
     AUTH_CALLBACK_PATH,
     AUTH_PROXY_NAME,
@@ -65,6 +68,8 @@ from .const import (
     CONF_QUEUE_DELAY,
     CONF_SECURITYCODE,
     CONF_TOTP_REGISTER,
+    CONF_USE_REPORTED_DOMAIN,
+    CONFIG_ENTRY_OPTION_KEYS,
     DATA_ALEXAMEDIA,
     DEFAULT_DEBUG,
     DEFAULT_EXTENDED_ENTITY_DISCOVERY,
@@ -75,7 +80,7 @@ from .const import (
     DOMAIN,
     ISSUE_URL,
 )
-from .helpers import calculate_uuid
+from .helpers import calculate_uuid, config_entry_option
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -104,9 +109,14 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
 
     VERSION = CONFIG_VERSION
 
-    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
     proxy: AlexaProxy = None
-    proxy_view: "AlexaMediaAuthorizationProxyView" = None
+
+    def _get_default_amazon_domain(self) -> str:
+        """Return the Amazon domain appropriate for the HA country."""
+        return AMAZON_DOMAINS.get(
+            self.hass.config.country,
+            "amazon.com",
+        )
 
     def _update_ord_dict(self, old_dict: OrderedDict, new_dict: dict) -> OrderedDict:
         result: OrderedDict = OrderedDict()
@@ -122,9 +132,14 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
     def __init__(self):
         """Initialize the config flow."""
         self.login = None
+        self._reuse_loaded_login = True
+        self._loaded_login = None
         self.securitycode: Optional[str] = None
         self.automatic_steps: int = 0
         self.config = OrderedDict()
+        # Keys the user explicitly cleared, so the reauth merge does not
+        # restore the previous stored value from the entry data.
+        self.explicitly_removed: set[str] = set()
         self.proxy_schema = None
         self.data_schema = OrderedDict(
             [
@@ -157,6 +172,8 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
     async def async_step_user(self, user_input=None):
         # pylint: disable=too-many-branches
 
+        default_domain = self._get_default_amazon_domain()
+
         """Provide a proxy for login."""
         self._save_user_input_to_config(user_input=user_input)
         """ Internal URL for proxy authentication """
@@ -177,7 +194,7 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
             [
                 (
                     vol.Required(
-                        CONF_URL, default=self.config.get(CONF_URL, "amazon.com")
+                        CONF_URL, default=self.config.get(CONF_URL, default_domain)
                     ),
                     str,
                 ),
@@ -265,11 +282,12 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
                 data_schema=vol.Schema(self.proxy_schema),
                 description_placeholders={"message": ""},
             )
-        if self.login is None:
+        if self.login is None and self._reuse_loaded_login:
             try:
                 self.login = self.hass.data[DATA_ALEXAMEDIA]["accounts"][
                     self.config[CONF_EMAIL]
                 ].get("login_obj")
+                self._loaded_login = self.login
             except KeyError:
                 self.login = None
         try:
@@ -378,9 +396,16 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
             try:
                 self.proxy = AlexaProxy(
                     self.login,
-                    str(URL(self.config.get(CONF_HASS_URL)).with_path(AUTH_PROXY_PATH)),
+                    str(
+                        URL(self.config.get(CONF_HASS_URL)).with_path(
+                            f"{AUTH_PROXY_PATH}/{self.flow_id}"
+                        )
+                    ),
                 )
-                self.proxy.session_factory = lambda: httpx.AsyncClient(
+                self.proxy.session_factory = lambda: create_async_httpx_client(
+                    self.hass,
+                    verify_ssl=True,
+                    follow_redirects=False,
                     timeout=httpx.Timeout(
                         connect=30.0,
                         read=120.0,
@@ -413,13 +438,14 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
                 "Proxy: No session found on proxy object. Attrs: %s",
                 dir(self.proxy),
             )
-        if not self.proxy_view:
-            self.proxy_view = AlexaMediaAuthorizationProxyView(self.proxy.all_handler)
-        else:
-            _LOGGER.debug("Found existing proxy_view")
-            self.proxy_view.handler = self.proxy.all_handler
-        self.hass.http.register_view(AlexaMediaAuthorizationCallbackView())
-        self.hass.http.register_view(self.proxy_view)
+        # Routes live for the lifetime of the HTTP server, not a config flow.
+        if AUTH_PROXY_NAME not in self.hass.data:
+            self.hass.http.register_view(AlexaMediaAuthorizationCallbackView())
+            self.hass.data[AUTH_PROXY_NAME] = AlexaMediaAuthorizationProxyView()
+            self.hass.http.register_view(self.hass.data[AUTH_PROXY_NAME])
+        self.hass.data[AUTH_PROXY_NAME].register_handler(
+            self.hass, self.flow_id, self.proxy.all_handler
+        )
         callback_url = (
             URL(self.config[CONF_HASS_URL])
             .with_path(AUTH_CALLBACK_PATH)
@@ -441,7 +467,7 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
             hide_email(self.login.email),
             self.login.url,
         )
-        self.proxy_view.reset()
+        self.hass.data[AUTH_PROXY_NAME].handlers.pop(self.flow_id, None)
         return self.async_external_step_done(next_step_id="finish_proxy")
 
     async def async_step_finish_proxy(self, user_input=None):
@@ -451,8 +477,54 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
             await self.login.finalize_login()
             self.config[CONF_EMAIL] = self.login.email
             self.config[CONF_PASSWORD] = self.login.password
+            reported_domain = self.login.reported_account_domain
+            if reported_domain and reported_domain != self.login.url:
+                return await self.async_step_domain_mismatch()
+
             return await self._test_login()
+
         return self.async_abort(reason="login_failed")
+
+    async def async_step_domain_mismatch(self, user_input=None):
+        """Handle an Amazon domain mismatch."""
+        reported_domain = self.login.reported_account_domain
+        configured_domain = self.login.url
+
+        if user_input is not None:
+            if user_input.get(CONF_USE_REPORTED_DOMAIN):
+                self.config[CONF_URL] = reported_domain
+
+                if self.login is not self._loaded_login:
+                    await self.login.close()
+                self.login = None
+                self.proxy = None
+                self._reuse_loaded_login = False
+
+                return await self.async_step_user()
+
+            return await self._test_login()
+
+        _LOGGER.warning(
+            "Configured Amazon domain %s does not match reported account domain %s",
+            configured_domain,
+            reported_domain,
+        )
+
+        return self.async_show_form(
+            step_id="domain_mismatch",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_USE_REPORTED_DOMAIN,
+                        default=True,
+                    ): bool,
+                }
+            ),
+            description_placeholders={
+                "configured_domain": configured_domain,
+                "reported_domain": reported_domain,
+            },
+        )
 
     async def async_step_user_legacy(self, user_input=None):
         """Handle legacy input for the config flow."""
@@ -482,11 +554,12 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
                 errors={CONF_EMAIL: "identifier_exists"},
                 description_placeholders={"message": ""},
             )
-        if self.login is None:
+        if self.login is None and self._reuse_loaded_login:
             try:
                 self.login = self.hass.data[DATA_ALEXAMEDIA]["accounts"][
                     self.config[CONF_EMAIL]
                 ].get("login_obj")
+                self._loaded_login = self.login
             except KeyError:
                 self.login = None
         try:
@@ -508,6 +581,8 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
                 )
             else:
                 _LOGGER.debug("Using existing login")
+                if self.config.get("reauth") and self.config.get(CONF_EMAIL):
+                    self.login.email = self.config[CONF_EMAIL]
             if (
                 not self.config.get("reauth")
                 and user_input
@@ -618,21 +693,35 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
         """Handle reauth processing for the config flow."""
         self._save_user_input_to_config(user_input)
         self.config["reauth"] = True
+        self.reauth_entry = self.hass.config_entries.async_get_entry(
+            self.context["entry_id"]
+        )
+        if self.reauth_entry is not None:
+            # Reauth starts with entry.data, which may contain stale settings
+            # from before the options split. Show the effective values instead.
+            for key in CONFIG_ENTRY_OPTION_KEYS:
+                if key in self.reauth_entry.options:
+                    self.config[key] = self.reauth_entry.options[key]
         reauth_schema = self._update_schema_defaults()
         _LOGGER.debug(
             "Creating reauth form with %s",
             obfuscate(self.config),
         )
         self.automatic_steps = 0
-        if self.login is None:
+        if self.login is None and self._reuse_loaded_login:
             try:
                 self.login = self.hass.data[DATA_ALEXAMEDIA]["accounts"][
                     self.config[CONF_EMAIL]
                 ].get("login_obj")
+                self._loaded_login = self.login
             except KeyError:
                 self.login = None
         seconds_since_login: int = (
-            (datetime.datetime.now() - self.login.stats["login_timestamp"]).seconds
+            int(
+                (
+                    datetime.datetime.now() - self.login.stats["login_timestamp"]
+                ).total_seconds()
+            )
             if self.login
             else 60
         )
@@ -655,7 +744,16 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
         email = login.email
         _LOGGER.debug("Testing login status: %s", login.status)
         if login.status and login.status.get("login_successful"):
-            existing_entry = await self.async_set_unique_id(f"{email} - {login.url}")
+            existing_entry = getattr(self, "reauth_entry", None)
+            _LOGGER.debug(
+                "Reauth existing entry: %s",
+                existing_entry.entry_id if existing_entry else None,
+            )
+            if existing_entry is None:
+                existing_entry = await self.async_set_unique_id(
+                    f"{email} - {login.url}"
+                )
+
             if self.config.get("reauth"):
                 self.config.pop("reauth")
             if self.config.get(CONF_SECURITYCODE):
@@ -676,28 +774,87 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
             )
             self.hass.data[DATA_ALEXAMEDIA].setdefault("accounts", {})
             self.hass.data[DATA_ALEXAMEDIA].setdefault("config_flows", {})
+
             if existing_entry:
+                old_email = existing_entry.data.get(CONF_EMAIL)
+
+                accounts = self.hass.data[DATA_ALEXAMEDIA]["accounts"]
+
+                target_account = accounts.get(email)
+                if target_account is not None:
+                    target_entry = target_account.get("config_entry")
+                    if (
+                        target_entry is None
+                        or target_entry.entry_id != existing_entry.entry_id
+                    ):
+                        _LOGGER.error(
+                            "Cannot reauth %s: runtime account belongs to "
+                            "another config entry",
+                            hide_email(email),
+                        )
+                        return self.async_abort(reason="already_configured")
+
+                # Runtime accounts only exist for loaded entries, so also check
+                # every config entry (disabled or not yet loaded) for ownership.
+                new_unique_id = f"{login.email} - {login.url}"
+                for other_entry in self.hass.config_entries.async_entries(DOMAIN):
+                    if other_entry.entry_id == existing_entry.entry_id:
+                        continue
+                    if other_entry.unique_id == new_unique_id:
+                        _LOGGER.error(
+                            "Cannot reauth %s: another config entry already "
+                            "owns this account",
+                            hide_email(email),
+                        )
+                        return self.async_abort(reason="already_configured")
+
+                if old_email and old_email != email and old_email in accounts:
+                    _LOGGER.debug(
+                        "Moving Alexa runtime account from %s to %s",
+                        hide_email(old_email),
+                        hide_email(email),
+                    )
+                    account_data = accounts.pop(old_email)
+                    account_data["config_entry"] = existing_entry
+                    account_data["login_obj"] = self.login
+                    accounts[email] = account_data
+                else:
+                    if email in accounts:
+                        accounts[email]["login_obj"] = self.login
+
+                # Reconcile legacy settings and values edited during reauth in
+                # one update. Keep unrelated data/options and remove stale copies.
+                data = {**existing_entry.data, **self.config}
+                options = dict(existing_entry.options)
+                for key in self.explicitly_removed:
+                    data.pop(key, None)
+                    options.pop(key, None)
+                for key in CONFIG_ENTRY_OPTION_KEYS:
+                    if key in self.config:
+                        options[key] = self.config[key]
+                    elif key in data:
+                        options.setdefault(key, data[key])
+                    data.pop(key, None)
+
                 self.hass.config_entries.async_update_entry(
-                    existing_entry, data=self.config
+                    existing_entry,
+                    data=data,
+                    options=options,
+                    title=f"{login.email} - {login.url}",
+                    unique_id=f"{login.email} - {login.url}",
                 )
+
                 _LOGGER.debug("Reauth successful for %s", hide_email(email))
                 self.hass.bus.async_fire(
                     "alexa_media_relogin_success",
                     event_data={"email": hide_email(email), "url": login.url},
                 )
+                host = urlparse(login.url).hostname or login.url
+                notification_id = f"alexa_media_{slugify(email)}_{slugify(host)}"
                 async_dismiss_persistent_notification(
                     self.hass,
-                    notification_id=f"alexa_media_{slugify(email)}{slugify(login.url[7:])}",
+                    notification_id,
                 )
-                if not self.hass.data[DATA_ALEXAMEDIA]["accounts"].get(
-                    self.config[CONF_EMAIL]
-                ):
-                    self.hass.data[DATA_ALEXAMEDIA]["accounts"][
-                        self.config[CONF_EMAIL]
-                    ] = {}
-                self.hass.data[DATA_ALEXAMEDIA]["accounts"][self.config[CONF_EMAIL]][
-                    "login_obj"
-                ] = self.login
                 self.hass.data[DATA_ALEXAMEDIA]["config_flows"][
                     f"{email} - {login.url}"
                 ] = None
@@ -747,10 +904,12 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
                 )
         if login.status and (login.status.get("login_failed")):
             _LOGGER.debug("Login failed: %s", login.status.get("login_failed"))
+            host = urlparse(login.url).hostname or login.url
+            notification_id = f"alexa_media_{slugify(email)}_{slugify(host)}"
             await login.close()
             async_dismiss_persistent_notification(
                 self.hass,
-                notification_id=f"alexa_media_{slugify(email)}{slugify(login.url[7:])}",
+                notification_id,
             )
             return self.async_abort(reason="login_failed")
         new_schema = self._update_schema_defaults()
@@ -803,19 +962,24 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
             " ", ""
         ):
             self.config[CONF_OTPSECRET] = user_input[CONF_OTPSECRET].replace(" ", "")
+            self.explicitly_removed.discard(CONF_OTPSECRET)
         elif user_input.get(CONF_OTPSECRET):
             # a blank line
             self.config.pop(CONF_OTPSECRET)
+            self.explicitly_removed.add(CONF_OTPSECRET)
         if CONF_EMAIL in user_input:
             self.config[CONF_EMAIL] = user_input[CONF_EMAIL]
         if CONF_PASSWORD in user_input:
             self.config[CONF_PASSWORD] = user_input[CONF_PASSWORD]
         if CONF_URL in user_input:
-            self.config[CONF_URL] = user_input[CONF_URL]
+            # Remove accidental whitespace introduced by mobile keyboards/paste.
+            self.config[CONF_URL] = "".join(user_input[CONF_URL].split())
         if CONF_PUBLIC_URL in user_input:
-            if not user_input[CONF_PUBLIC_URL].endswith("/"):
-                user_input[CONF_PUBLIC_URL] = user_input[CONF_PUBLIC_URL] + "/"
-            self.config[CONF_PUBLIC_URL] = user_input[CONF_PUBLIC_URL]
+            public_url = user_input.get(CONF_PUBLIC_URL) or ""
+            if public_url and not public_url.endswith("/"):
+                public_url += "/"
+            user_input[CONF_PUBLIC_URL] = public_url
+            self.config[CONF_PUBLIC_URL] = public_url
         if CONF_SCAN_INTERVAL in user_input:
             self.config[CONF_SCAN_INTERVAL] = (
                 user_input[CONF_SCAN_INTERVAL]
@@ -850,11 +1014,12 @@ class AlexaMediaFlowHandler(config_entries.ConfigFlow):
             self.config[CONF_DEBUG] = user_input[CONF_DEBUG]
 
     def _update_schema_defaults(self) -> Any:
+        default_domain = self._get_default_amazon_domain()
         new_schema = self._update_ord_dict(
             self.data_schema,
             {
                 vol.Required(
-                    CONF_URL, default=self.config.get(CONF_URL, "amazon.com")
+                    CONF_URL, default=self.config.get(CONF_URL, default_domain)
                 ): str,
                 vol.Required(CONF_EMAIL, default=self.config.get(CONF_EMAIL, "")): str,
                 vol.Required(
@@ -927,8 +1092,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 (
                     vol.Optional(
                         CONF_PUBLIC_URL,
-                        default=self.config_entry.data.get(
-                            CONF_PUBLIC_URL, DEFAULT_PUBLIC_URL
+                        default=config_entry_option(
+                            self.config_entry, CONF_PUBLIC_URL, DEFAULT_PUBLIC_URL
                         ),
                     ),
                     str,
@@ -936,29 +1101,35 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 (
                     vol.Optional(
                         CONF_INCLUDE_DEVICES,
-                        default=self.config_entry.data.get(CONF_INCLUDE_DEVICES, ""),
+                        default=config_entry_option(
+                            self.config_entry, CONF_INCLUDE_DEVICES, ""
+                        ),
                     ),
                     str,
                 ),
                 (
                     vol.Optional(
                         CONF_EXCLUDE_DEVICES,
-                        default=self.config_entry.data.get(CONF_EXCLUDE_DEVICES, ""),
+                        default=config_entry_option(
+                            self.config_entry, CONF_EXCLUDE_DEVICES, ""
+                        ),
                     ),
                     str,
                 ),
                 (
                     vol.Optional(
                         CONF_SCAN_INTERVAL,
-                        default=self.config_entry.data.get(CONF_SCAN_INTERVAL, 120),
+                        default=config_entry_option(
+                            self.config_entry, CONF_SCAN_INTERVAL, 120
+                        ),
                     ),
                     int,
                 ),
                 (
                     vol.Optional(
                         CONF_QUEUE_DELAY,
-                        default=self.config_entry.data.get(
-                            CONF_QUEUE_DELAY, DEFAULT_QUEUE_DELAY
+                        default=config_entry_option(
+                            self.config_entry, CONF_QUEUE_DELAY, DEFAULT_QUEUE_DELAY
                         ),
                     ),
                     float,
@@ -966,7 +1137,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 (
                     vol.Optional(
                         CONF_EXTENDED_ENTITY_DISCOVERY,
-                        default=self.config_entry.data.get(
+                        default=config_entry_option(
+                            self.config_entry,
                             CONF_EXTENDED_ENTITY_DISCOVERY,
                             DEFAULT_EXTENDED_ENTITY_DISCOVERY,
                         ),
@@ -976,7 +1148,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 (
                     vol.Optional(
                         CONF_DEBUG,
-                        default=self.config_entry.data.get(CONF_DEBUG, DEFAULT_DEBUG),
+                        default=config_entry_option(
+                            self.config_entry, CONF_DEBUG, DEFAULT_DEBUG
+                        ),
                     ),
                     bool,
                 ),
@@ -984,39 +1158,24 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         )
 
         if user_input is not None:
-            """Preserve these parameters"""
-            if CONF_URL in self.config_entry.data:
-                user_input[CONF_URL] = self.config_entry.data[CONF_URL]
-            if CONF_EMAIL in self.config_entry.data:
-                user_input[CONF_EMAIL] = self.config_entry.data[CONF_EMAIL]
-            if CONF_PASSWORD in self.config_entry.data:
-                user_input[CONF_PASSWORD] = self.config_entry.data[CONF_PASSWORD]
-            if CONF_SECURITYCODE in self.config_entry.data:
-                user_input[CONF_SECURITYCODE] = self.config_entry.data[
-                    CONF_SECURITYCODE
-                ]
-            if CONF_OTPSECRET in self.config_entry.data:
-                user_input[CONF_OTPSECRET] = self.config_entry.data[CONF_OTPSECRET]
-            if CONF_OAUTH in self.config_entry.data:
-                user_input[CONF_OAUTH] = self.config_entry.data[CONF_OAUTH]
-            """Ensure public_url ends with trailing slash"""
-            if CONF_PUBLIC_URL in self.config_entry.data:
-                if not user_input[CONF_PUBLIC_URL].endswith("/"):
-                    user_input[CONF_PUBLIC_URL] = user_input[CONF_PUBLIC_URL] + "/"
-            """Remove leading/trailing spaces in device strings"""
-            if CONF_INCLUDE_DEVICES in self.config_entry.data:
+            # Options belong in ConfigEntry.options. Credentials and the Amazon
+            # region stay in ConfigEntry.data and are not touched here.
+            if user_input.get(CONF_PUBLIC_URL) and not user_input[
+                CONF_PUBLIC_URL
+            ].endswith("/"):
+                user_input[CONF_PUBLIC_URL] = f"{user_input[CONF_PUBLIC_URL]}/"
+            if CONF_INCLUDE_DEVICES in user_input:
                 user_input[CONF_INCLUDE_DEVICES] = user_input[
                     CONF_INCLUDE_DEVICES
                 ].strip()
-            if CONF_EXCLUDE_DEVICES in self.config_entry.data:
+            if CONF_EXCLUDE_DEVICES in user_input:
                 user_input[CONF_EXCLUDE_DEVICES] = user_input[
                     CONF_EXCLUDE_DEVICES
                 ].strip()
 
-            self.hass.config_entries.async_update_entry(
-                self.config_entry, data=user_input, options=self.config_entry.options
-            )
-            return self.async_create_entry(title="", data={})
+            # The options-flow manager writes the returned data to
+            # ConfigEntry.options once the flow finishes.
+            return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
             step_id="init",
@@ -1052,52 +1211,53 @@ class AlexaMediaAuthorizationProxyView(HomeAssistantView):
     """Handle proxy connections."""
 
     url: str = AUTH_PROXY_PATH
-    extra_urls: list[str] = [f"{AUTH_PROXY_PATH}/{{tail:.*}}"]
+    extra_urls: list[str] = [
+        f"{AUTH_PROXY_PATH}/{{config_flow_id}}",
+        f"{AUTH_PROXY_PATH}/{{config_flow_id}}/{{tail:.*}}",
+    ]
     name: str = AUTH_PROXY_NAME
     requires_auth: bool = False
-    handler: web.RequestHandler = None
-    known_ips: dict[str, datetime.datetime] = {}
-    auth_seconds: int = 300
 
-    def __init__(self, handler: web.RequestHandler):
-        """Initialize routes for view.
-
-        Args:
-            handler (web.RequestHandler): Handler to apply to all method types
-
-        """
-        AlexaMediaAuthorizationProxyView.handler = handler
+    def __init__(self):
+        """Initialize a single dispatcher for all active AMP flows."""
+        self.handlers: dict[str, web.RequestHandler] = {}
         for method in ("get", "post", "delete", "put", "patch", "head", "options"):
             setattr(self, method, self.check_auth())
 
-    @classmethod
-    def check_auth(cls):
-        """Wrap authentication into the handler."""
+    def register_handler(self, hass, flow_id: str, handler: web.RequestHandler) -> None:
+        """Refresh only this flow and discard handlers for abandoned flows."""
+        self.prune(hass)
+        self.handlers[flow_id] = handler
 
-        async def wrapped(request, **kwargs):
-            """Notify that the API is running."""
+    def prune(self, hass) -> None:
+        """Release logins whose config flows are no longer active."""
+        active = in_progress_instances(hass)
+        for flow_id in self.handlers.keys() - active:
+            del self.handlers[flow_id]
+
+    def check_auth(self):
+        """Return the per-method dispatcher."""
+
+        async def wrapped(request, config_flow_id=None, **kwargs):
             hass = request.app["hass"]
-            success = False
             if (
-                request.remote not in cls.known_ips
-                or (datetime.datetime.now() - cls.known_ips.get(request.remote)).seconds
-                > cls.auth_seconds
+                not config_flow_id
+                or request.query.get("config_flow_id", config_flow_id) != config_flow_id
             ):
+                raise Unauthorized()
+            if "callback_url" in request.query:
                 try:
-                    flow_id = request.url.query["config_flow_id"]
-                except KeyError as ex:
+                    callback_flow_id = URL(request.query["callback_url"]).query.get(
+                        "flow_id"
+                    )
+                except ValueError as ex:
                     raise Unauthorized() from ex
-                for flow in hass.config_entries.flow.async_progress():
-                    if flow["flow_id"] == flow_id:
-                        _LOGGER.debug(
-                            "Found flow_id; adding %s to known_ips for %s seconds",
-                            request.remote,
-                            cls.auth_seconds,
-                        )
-                        success = True
-                if not success:
+                if callback_flow_id != config_flow_id:
                     raise Unauthorized()
-                cls.known_ips[request.remote] = datetime.datetime.now()
+            self.prune(hass)
+            handler = self.handlers.get(config_flow_id)
+            if handler is None:
+                raise Unauthorized()
             _sensitive_keys = {
                 "authorization",
                 "cookie",
@@ -1117,7 +1277,7 @@ class AlexaMediaAuthorizationProxyView(HomeAssistantView):
                     _safe_req_headers,
                 )
             try:
-                result = await cls.handler(request, **kwargs)
+                result = await handler(request, **kwargs)
                 if _LOGGER.isEnabledFor(logging.DEBUG):
                     _safe_resp_headers = (
                         {
@@ -1164,8 +1324,3 @@ class AlexaMediaAuthorizationProxyView(HomeAssistantView):
                 )
 
         return wrapped
-
-    @classmethod
-    def reset(cls) -> None:
-        """Reset the view."""
-        cls.known_ips = {}

@@ -11,11 +11,23 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from homeassistant.const import (
-    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
-    CONCENTRATION_PARTS_PER_MILLION,
-    PERCENTAGE,
-)
+from homeassistant.const import PERCENTAGE
+
+try:
+    # UnitOfDensity/UnitOfRatio were added in HA 2026.7.0. Below that (this
+    # integration's floor is 2025.2.0), fall back to the equivalent
+    # CONCENTRATION_* constants -- deprecated starting in HA 2026.8 (removed
+    # in 2027.8) but still present as aliases for the same values, and the
+    # only ones that exist pre-2026.7.
+    from homeassistant.const import UnitOfDensity, UnitOfRatio
+
+    _MICROGRAMS_PER_CUBIC_METER = UnitOfDensity.MICROGRAMS_PER_CUBIC_METER
+    _PARTS_PER_MILLION = UnitOfRatio.PARTS_PER_MILLION
+except ImportError:
+    from homeassistant.const import (
+        CONCENTRATION_MICROGRAMS_PER_CUBIC_METER as _MICROGRAMS_PER_CUBIC_METER,
+        CONCENTRATION_PARTS_PER_MILLION as _PARTS_PER_MILLION,
+    )
 
 PROJECT_URL = "https://github.com/alandtse/alexa_media_player/"
 ISSUE_URL = f"{PROJECT_URL}issues"
@@ -39,6 +51,9 @@ DEPENDENT_ALEXA_COMPONENTS = [
     "alarm_control_panel",
     "light",
     "binary_sensor",
+    "select",
+    "number",
+    "button",
 ]
 
 HTTP_COOKIE_HEADER = "# HTTP Cookie File"
@@ -59,7 +74,18 @@ CONF_SCAN_INTERVAL = (
 )
 CONF_TOTP_REGISTER = "registered"
 CONF_OAUTH = "oauth"
+CONF_USE_REPORTED_DOMAIN = "use_reported_domain"
 DATA_LISTENER = "listener"
+
+CONFIG_ENTRY_OPTION_KEYS = (
+    CONF_PUBLIC_URL,
+    CONF_INCLUDE_DEVICES,
+    CONF_EXCLUDE_DEVICES,
+    CONF_SCAN_INTERVAL,
+    CONF_QUEUE_DELAY,
+    CONF_EXTENDED_ENTITY_DISCOVERY,
+    CONF_DEBUG,
+)
 
 EXCEPTION_TEMPLATE = "An exception of type {0} occurred. Arguments:\n{1!r}"
 
@@ -70,12 +96,51 @@ DEFAULT_PUBLIC_URL = ""
 DEFAULT_QUEUE_DELAY = 1.5
 DEFAULT_SCAN_INTERVAL = 60
 
+EPOCH_MS_THRESHOLD = 10_000_000_000
+
 # Service name constants used by services.py SERVICE_DEFS
 SERVICE_UPDATE_LAST_CALLED = "update_last_called"
 SERVICE_RESTORE_VOLUME = "restore_volume"
 SERVICE_GET_HISTORY_RECORDS = "get_history_records"
 SERVICE_FORCE_LOGOUT = "force_logout"
 SERVICE_ENABLE_NETWORK_DISCOVERY = "enable_network_discovery"
+SERVICE_AMAZON_KIDS_ENABLE = "amazon_kids_enable"
+SERVICE_AMAZON_KIDS_DISABLE = "amazon_kids_disable"
+SERVICE_REPEAT_LAST_MESSAGE = "repeat_last_message"
+SERVICE_CREATE_ALARM = "create_alarm"
+SERVICE_ENABLE_ALARM = "enable_alarm"
+SERVICE_DISABLE_ALARM = "disable_alarm"
+SERVICE_DELETE_ALARM = "delete_alarm"
+SERVICE_SKIP_NEXT_ALARM = "skip_next_alarm"
+
+# Backoff durations for the last-called probe worker
+LAST_CALLED_429_BACKOFF_INITIAL_S = 30.0
+LAST_CALLED_429_BACKOFF_MAX_S = 15 * 60.0
+LAST_CALLED_CONN_BACKOFF_S = 10.0
+LAST_CALLED_LOGIN_BACKOFF_S = 30.0
+
+# Deadlock guard for AlexaLogin.login() during config entry setup.
+LOGIN_MAX_WAIT_S = 600.0
+
+# Tuning constants for the per-account last-called probe worker
+LAST_CALLED_DEBOUNCE_S = 3.5  # coalesce bursty pushes, but stay snappy
+LAST_CALLED_RETRY_DELAY_S = 4.0  # wider retry cadence for delayed routine history
+LAST_CALLED_RETRY_LIMIT = 2  # total attempts = 1 + retries (3 attempts)
+LAST_CALLED_STALE_FUDGE_MS = 5_000  # allow some clock/ordering jitter
+LAST_CALLED_SUCCESS_PACE_S = 4.0  # post-success pacing to avoid hammering
+LAST_CALLED_LOOKBACK_MS = 60_000
+LAST_CALLED_ITEMS = 10
+LAST_CALLED_COALESCE_WINDOW_MS = 2000
+
+# Tuning constants for notification retries
+NOTIFICATION_COOLDOWN = 60
+NOTIFY_REFRESH_BACKOFF = 15.0
+NOTIFY_REFRESH_MAX_RETRIES = 3
+
+# push-health magic numbers
+HTTP2_ERROR_THRESHOLD = 5
+LAST_PUSH_INACTIVITY_SECONDS = 600.0
+LAST_PING_MAX_AGE_SECONDS = 900.0
 
 RECURRING_PATTERN = {
     None: "Never Repeat",
@@ -119,6 +184,10 @@ ATTR_MESSAGE = "message"
 ATTR_EMAIL = "email"
 ATTR_ENTITY_ID = "entity_id"
 ATTR_NUM_ENTRIES = "entries"
+ATTR_CHILD = "child"
+ATTR_ALARM_ID = "alarm_id"
+ATTR_TIME = "time"
+ATTR_DAYS = "days"
 COMMON_BUCKET_COUNTS = (
     "accounts",
     "devices",
@@ -185,15 +254,16 @@ AUTH_PROXY_NAME = "auth:alexamedia:proxy"
 
 ALEXA_UNIT_CONVERSION = {
     "Alexa.Unit.Percent": PERCENTAGE,
-    "Alexa.Unit.PartsPerMillion": CONCENTRATION_PARTS_PER_MILLION,
-    "Alexa.Unit.Density.MicroGramsPerCubicMeter": CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+    "Alexa.Unit.PartsPerMillion": _PARTS_PER_MILLION,
+    "Alexa.Unit.Density.MicroGramsPerCubicMeter": _MICROGRAMS_PER_CUBIC_METER,
 }
 
 ALEXA_ICON_CONVERSION = {
     "Alexa.AirQuality.CarbonMonoxide": "mdi:molecule-co",
     "Alexa.AirQuality.Humidity": "mdi:water-percent",
-    "Alexa.AirQuality.IndoorAirQuality": "mdi:numeric",
+    "Alexa.AirQuality.IndoorAirQuality": "mdi:gauge",
     "Alexa.AirQuality.ParticulateMatter": "mdi:blur",
+    "Alexa.AirQuality.ParticulateMatterPM10": "mdi:blur",
     "Alexa.AirQuality.VolatileOrganicCompounds": "mdi:air-filter",
 }
 ALEXA_ICON_DEFAULT = "mdi:molecule"
@@ -202,10 +272,27 @@ ALEXA_ICON_DEFAULT = "mdi:molecule"
 # Maps Alexa sensor types to Home Assistant SensorDeviceClass
 ALEXA_AIR_QUALITY_DEVICE_CLASS = {
     "Alexa.AirQuality.ParticulateMatter": "pm25",
+    "Alexa.AirQuality.ParticulateMatterPM10": "pm10",
     "Alexa.AirQuality.CarbonMonoxide": "carbon_monoxide",
     "Alexa.AirQuality.IndoorAirQuality": "aqi",
-    "Alexa.AirQuality.VolatileOrganicCompounds": "aqi",
+    # Amazon reports a unitless VOC index, so no concentration device class applies.
+    "Alexa.AirQuality.VolatileOrganicCompounds": None,
     "Alexa.AirQuality.Humidity": "humidity",
+}
+
+AMAZON_DOMAINS = {
+    "AU": "amazon.com.au",
+    "BR": "amazon.com.br",
+    "CA": "amazon.ca",
+    "DE": "amazon.de",
+    "ES": "amazon.es",
+    "FR": "amazon.fr",
+    "GB": "amazon.co.uk",
+    "IN": "amazon.in",
+    "IT": "amazon.it",
+    "JP": "amazon.co.jp",
+    "MX": "amazon.com.mx",
+    "US": "amazon.com",
 }
 
 UPLOAD_PATH = "www/alexa_tts"
@@ -311,6 +398,7 @@ MODEL_IDS = {
     "A32DDESGESSHZA": "Echo Dot (Gen3)",
     "A32DOYMUN6DTXA": "Echo Dot (Gen3)",
     "A339L426Y220I4": "Teufel Radio",
+    "A345JHMQDGG1M5": "Echo Show 8 (Gen4)",
     "A347G2JC8I4HC7": "Roav Car Charger Pro",
     "A37CFAHI1O0CXT": "Logitech Blast",
     "A37M7RU8Z6ZFB": "Garmin Speak",
@@ -342,7 +430,7 @@ MODEL_IDS = {
     "A3R9S4ZZECZ6YL": "Fire Tablet HD 10",
     "A3RBAYBE7VM004": "Echo Studio",
     "A3RCTOK2V0A4ZG": "LG TV",
-    "A3RMGO6LYLH7YN": "Echo Dot (Gen4)",
+    "A3RMGO6LYLH7YN": "Echo (Gen4)",
     "A3S5BH2HU6VAYF": "Echo Dot (Gen2)",
     "A3SSG6GR8UU7SN": "Echo Sub",
     "A3SSWQ04XYPXBH": "Generic Tablet",

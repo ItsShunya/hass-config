@@ -3,32 +3,39 @@
     "abort": {
       "forgot_password": "La page de réinitialisation du mot de passe a été détectée. Cela résulte généralement de trop nombreuses tentatives de connexion échouées. Amazon peut exiger une action avant qu'une nouvelle connexion ne puisse être tentée.",
       "login_failed": "Alexa Media Player n'a pas réussi à se connecter.",
-      "reauth_successful": "Alexa Media Player s'est ré-authentifié avec succès. Veuillez ignorer le message \"Abandonné\" de Home Assistant."
+      "reauth_successful": "Alexa Media Player s'est ré-authentifié avec succès. Veuillez ignorer le message « Abandonné » de Home Assistant."
     },
     "error": {
       "2fa_key_invalid": "{otp_secret} n'est pas valide",
-      "connection_error": "Erreur de connexion ; vérifiez le réseau et réessayez",
+      "connection_error": "Erreur de connexion ; vérifiez le réseau et réessayez",
       "identifier_exists": "L'adresse e-mail pour cette URL Alexa est déjà enregistrée",
       "invalid_auth": "La connexion a échoué. Veuillez vérifier votre adresse e-mail, votre mot de passe et votre clé d'authentification.",
       "invalid_credentials": "Identifiants invalides",
-      "invalid_url": "L'URL n'est pas valide: {message}",
+      "invalid_url": "L'URL n'est pas valide : {message}",
       "oauth_error": "Impossible de terminer la connexion OAuth. Veuillez réessayer.",
       "unable_to_connect_hass_url": "Impossible de se connecter à l'URL locale de Home Assistant. Veuillez vérifier l'URL sous Paramètres > Système > Réseau > URL de Home Assistant > Réseau local",
-      "unknown_error": "Erreur inconnue : {message}"
+      "unknown_error": "Erreur inconnue : {message}"
     },
     "step": {
+      "domain_mismatch": {
+        "data": {
+          "use_reported_domain": "Modifier la configuration pour la région signalée par Amazon"
+        },
+        "description": "Amazon indique que ce compte appartient à **{reported_domain} **, mais Alexa Media Player a été configuré pour utiliser **{configured_domain} **.\n\nVous pouvez changer pour la région indiquée et vous authentifier à nouveau, ou désélectionner et tenter de continuer avec votre région actuellement configurée.",
+        "title": "Lecteur multimédia Alexa - Incompatibilité régionale Amazon"
+      },
       "proxy_warning": {
         "data": {
           "proxy_warning": "Ignorer et continuer - Je comprends qu'aucune assistance pour les problèmes de connexion ne sera fournie si je contourne cet avertissement."
         },
-        "description": "Le serveur Home Assistant ne peut pas se connecter à l'URL fournie : {hass_url}.\n> {error}\n\nPour résoudre ce problème, veuillez confirmer que votre navigateur peut atteindre {hass_url}. Ce champ provient de Paramètres > Système > Réseau > URL de Home Assistant.\n\nSi vous êtes **certain** que votre navigateur peut accéder à cette URL, vous pouvez ignorer cet avertissement.",
+        "description": "Le serveur Home Assistant ne peut pas se connecter à l'URL fournie : {hass_url}.\n> {error}\n\nPour résoudre ce problème, veuillez confirmer que votre navigateur peut atteindre {hass_url}. Ce champ provient de Paramètres > Système > Réseau > URL de Home Assistant.\n\nSi vous êtes **certain** que votre navigateur peut accéder à cette URL, vous pouvez ignorer cet avertissement.",
         "title": "Alexa Media Player - Impossible de se connecter à l'URL de HA"
       },
       "totp_register": {
         "data": {
           "registered": "Oui, le code OTP a été vérifié"
         },
-        "description": "**{email} - alexa.{url}**\nAvez-vous vérifié le code OTP dans la validation en deux étapes Amazon ?\n> Code OTP : {message}",
+        "description": "**{email} - alexa.{url}**\nAvez-vous vérifié le code OTP dans la validation en deux étapes Amazon ?\n> Code OTP : {message}",
         "title": "Alexa Media Player - Confirmation OTP"
       },
       "user": {
@@ -46,19 +53,32 @@
           "scan_interval": "Intervalle d'interrogation programmé (secondes)",
           "securitycode": "Mot de passe à usage unique (OTP)",
           "should_get_network": "Découvrir le réseau Alexa",
-          "url": "Domaine de la région Amazon (ex : amazon.fr)"
+          "url": "Domaine de la région Amazon (ex : amazon.fr)"
         },
         "data_description": {
-          "debug": "Active une journalisation très détaillée, au niveau de la trace, pour un dépannage avancé. \n Non recommandé en fonctionnement normal en raison de l'augmentation du volume des journaux. \n Assurez-vous que le niveau de journalisation est défini sur DEBUG pour obtenir une sortie complète.",
+          "debug": "Active une journalisation très détaillée, au niveau de la trace, pour un dépannage avancé.\nNon recommandé en fonctionnement normal en raison de l'augmentation du volume des journaux.\nAssurez-vous que le niveau de journalisation est défini sur DEBUG pour obtenir une sortie complète.",
           "otp_secret": "Exemple : 35T5 LQSY I5IO 3EFQ LGAJ I6YB JWBY JJPR PYT7 XPPW IDAK SQBJ CVXA"
         }
       }
     }
   },
   "entity": {
+    "button": {
+      "restart": {
+        "name": "Redémarrage"
+      }
+    },
+    "number": {
+      "display_brightness": {
+        "name": "Luminosité de l'écran"
+      },
+      "notification_volume": {
+        "name": "Volume d'alarme et de notification"
+      }
+    },
     "sensor": {
       "air_quality": {
-        "name": "qualité de l'air"
+        "name": "Qualité de l'air"
       },
       "air_quality_carbon_monoxide": {
         "name": "Monoxyde de carbone"
@@ -67,13 +87,16 @@
         "name": "Humidité"
       },
       "air_quality_indoor_air_quality": {
-        "name": "qualité de l'air intérieur"
+        "name": "Qualité de l'air intérieur"
       },
       "air_quality_particulate_matter": {
         "name": "Matières particulaires"
       },
       "air_quality_volatile_organic_compounds": {
         "name": "Composés organiques volatils"
+      },
+      "battery": {
+        "name": "Battery"
       },
       "next_alarm": {
         "name": "Prochaine alarme"
@@ -82,13 +105,19 @@
         "name": "Prochain rappel"
       },
       "next_timer": {
-        "name": "La prochaine fois"
+        "name": "Prochain minuteur"
       },
       "temperature": {
         "name": "Température"
       }
     },
     "switch": {
+      "adaptive_brightness": {
+        "name": "Luminosité adaptative"
+      },
+      "display_power": {
+        "name": "Affichage"
+      },
       "do_not_disturb": {
         "name": "Ne pas déranger"
       },
@@ -117,11 +146,11 @@
           "otp_secret": "Clé d'authentification à 52 caractères pour Amazon 2SV",
           "public_url": "URL publique partagée avec les services externes hébergés",
           "queue_delay": "Délai pour regrouper plusieurs commandes (secondes)",
-          "scan_interval": "Fréquence d'interrogation programmée (secondes)",
+          "scan_interval": "Intervalle d'interrogation programmé (secondes)",
           "should_get_network": "Découvrir le réseau Alexa"
         },
         "data_description": {
-          "debug": "Active une journalisation très détaillée, au niveau de la trace, pour un dépannage avancé. \n Non recommandé en fonctionnement normal en raison de l'augmentation du volume des journaux. \n Assurez-vous que le niveau de journalisation est défini sur DEBUG pour obtenir une sortie complète.",
+          "debug": "Active une journalisation très détaillée, au niveau de la trace, pour un dépannage avancé.\nNon recommandé en fonctionnement normal en raison de l'augmentation du volume des journaux.\nAssurez-vous que le niveau de journalisation est défini sur DEBUG pour obtenir une sortie complète.",
           "otp_secret": "Exemple : 35T5 LQSY I5IO 3EFQ LGAJ I6YB JWBY JJPR PYT7 XPPW IDAK SQBJ CVXA"
         },
         "description": "* Champs obligatoires",
@@ -130,12 +159,106 @@
     }
   },
   "services": {
+    "amazon_kids_disable": {
+      "description": "Désactive Amazon Kids (mode enfant) pour un Echo en le dissociant de tout profil enfant.",
+      "fields": {
+        "entity_id": {
+          "description": "appareil Echo pour désactiver Amazon Kids sur",
+          "name": "Sélectionner le lecteur multimédia :"
+        }
+      },
+      "name": "Désactiver Amazon Kids"
+    },
+    "amazon_kids_enable": {
+      "description": "Active Amazon Kids (mode enfant) pour un Echo en l'associant à un profil enfant.",
+      "fields": {
+        "child": {
+          "description": "Profil enfant à attribuer (prénom ou identifiant direct)",
+          "name": "Enfant"
+        },
+        "entity_id": {
+          "description": "Appareil Echo pour activer Amazon Kids sur",
+          "name": "Sélectionner le lecteur multimédia :"
+        }
+      },
+      "name": "Activer Amazon Kids"
+    },
+    "create_alarm": {
+      "description": "Crée une alarme sur un Echo.",
+      "fields": {
+        "alarm_type": {
+          "description": "Use a music selection currently present in cached Alexa alarms, matched by provider and name. IDs are not persisted.",
+          "name": "Alarm type (experimental)"
+        },
+        "days": {
+          "description": "Nombre de jours de répétition. Laisser vide pour une alarme ponctuelle.",
+          "name": "Répéter sur"
+        },
+        "entity_id": {
+          "description": "Appareil Echo pour régler l'alarme",
+          "name": "Sélectionner le lecteur multimédia :"
+        },
+        "music_entity": {
+          "name": "Music station or content (match a cached Alexa music alarm)"
+        },
+        "music_provider": {
+          "name": "Music provider (match a cached Alexa music alarm)"
+        },
+        "time": {
+          "description": "Programmez la sonnerie du réveil",
+          "name": "Temps"
+        }
+      },
+      "name": "Créer une alarme"
+    },
+    "delete_alarm": {
+      "description": "Supprime une alarme Echo.",
+      "fields": {
+        "alarm_id": {
+          "description": "L'identifiant de l'alarme, provenant de l'attribut sorted_all du capteur d'alarme suivant de l'appareil.",
+          "name": "ID d'alarme"
+        },
+        "entity_id": {
+          "description": "L'alarme de l'appareil Echo est activée.",
+          "name": "Sélectionner le lecteur multimédia :"
+        }
+      },
+      "name": "Supprimer l'alarme"
+    },
+    "disable_alarm": {
+      "description": "Désactive une alarme Echo sans la supprimer.",
+      "fields": {
+        "alarm_id": {
+          "description": "L'identifiant de l'alarme, provenant de l'attribut sorted_all du capteur d'alarme suivant de l'appareil.",
+          "name": "ID d'alarme"
+        },
+        "entity_id": {
+          "description": "L'alarme de l'appareil Echo est activée.",
+          "name": "Sélectionner le lecteur multimédia :"
+        }
+      },
+      "name": "Désactiver l'alarme"
+    },
+    "enable_alarm": {
+      "description": "Active une alarme Echo.",
+      "fields": {
+        "alarm_id": {
+          "description": "L'identifiant de l'alarme, provenant de l'attribut sorted_all du capteur d'alarme suivant de l'appareil.",
+          "name": "ID d'alarme"
+        },
+        "entity_id": {
+          "description": "L'alarme de l'appareil Echo est activée.",
+          "name": "Sélectionner le lecteur multimédia :"
+        }
+      },
+      "name": "Activer l'alarme"
+    },
     "enable_network_discovery": {
       "description": "Réactive la découverte du réseau Alexa afin que le prochain cycle d'interrogation redécouvre les appareils Alexa pour les comptes sélectionnés.",
       "fields": {
         "email": {
           "description": "Adresse e-mail du compte Alexa ou liste d'adresses (facultatif). Si vide, tous les comptes connus seront actualisés.",
-          "name": "Adresse email"
+          "name": "Adresse e-mail"
         }
       },
       "name": "Activer la découverte du réseau"
@@ -155,7 +278,7 @@
       "fields": {
         "entity_id": {
           "description": "Entité pour laquelle obtenir l'historique",
-          "name": "Sélectionner le lecteur multimédia:"
+          "name": "Sélectionner le lecteur multimédia :"
         },
         "entries": {
           "description": "Nombre d'entrées à récupérer",
@@ -164,15 +287,48 @@
       },
       "name": "Obtenir les enregistrements d'historique"
     },
+    "list_alarms": {
+      "description": "Returns cached alarm metadata for one Echo, including music station/provider.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity"
+        }
+      },
+      "name": "List alarms (experimental)"
+    },
+    "repeat_last_message": {
+      "description": "Sends the last TTS message or announcement sent to an Echo by the notify service again. Messages are kept until Home Assistant restarts or the integration reloads.",
+      "fields": {
+        "entity_id": {
+          "description": "Echo devices to repeat the last message on",
+          "name": "Select media players:"
+        }
+      },
+      "name": "Repeat Last Message"
+    },
     "restore_volume": {
       "description": "Restaure le niveau de volume précédent sur l'appareil Alexa Media Player.",
       "fields": {
         "entity_id": {
           "description": "Entité sur laquelle restaurer le niveau de volume précédent",
-          "name": "Sélectionner le lecteur multimédia:"
+          "name": "Sélectionner le lecteur multimédia :"
         }
       },
       "name": "Restaurer le volume précédent"
+    },
+    "skip_next_alarm": {
+      "description": "Les requêtes ignorent la prochaine occurrence d'une alarme Echo récurrente active. Veuillez vérifier le prochain capteur d'alarme après son actualisation avant de rappeler.",
+      "fields": {
+        "alarm_id": {
+          "description": "L'identifiant de l'alarme, provenant de l'attribut sorted_all du capteur d'alarme suivant de l'appareil.",
+          "name": "ID d'alarme"
+        },
+        "entity_id": {
+          "description": "L'alarme de l'appareil Echo est activée.",
+          "name": "Sélectionner le lecteur multimédia :"
+        }
+      },
+      "name": "Passer à la prochaine alarme"
     },
     "update_last_called": {
       "description": "Force la mise à jour du dernier appareil Echo appelé pour chaque compte Alexa.",
