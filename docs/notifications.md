@@ -1,6 +1,11 @@
 # Notifications
 
-[`packages/notifications.yaml`](../packages/notifications.yaml) sends a WhatsApp message to a group when the alarm is armed or disarmed, and replies to "status" in that group with the alarm's state.
+Home Assistant sends WhatsApp messages to a group when:
+
+- The alarm is armed or disarmed ([`packages/notifications.yaml`](../packages/notifications.yaml)).
+- The vacuum starts or finishes a clean, gets stuck, is left off the dock for 30 minutes, or a brush or the filter is under 10% life ([`packages/vacuum.yaml`](../packages/vacuum.yaml)).
+
+It also replies to "status" in the group with the alarm's state. Each package sends its own messages with `notify.whatsapp` and the `whatsapp_group` secret.
 
 The messages go through [ha-wa-bridge](https://github.com/raulpetruta/ha-wa-bridge): the `wa_bridge` integration, plus a bridge container that's logged in to WhatsApp as a linked device. It's not an official API, so WhatsApp could ban the number.
 

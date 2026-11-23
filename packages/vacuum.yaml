@@ -165,28 +165,93 @@ automation:
         data:
           value: ""
 
+  # WhatsApp notifications, see docs/notifications.md.
+  - id: vacuum_notify_run
+    alias: Vacuum - notify start and finish
+    description: Send a WhatsApp message when the vacuum starts cleaning and when it's done.
+    # Runs for the whole clean, so carrying on after a recharge isn't a new start.
+    mode: single
+    max_exceeded: silent
+    triggers:
+      - trigger: state
+        entity_id: vacuum.robot_vacuum
+        from:
+          - docked
+          - idle
+        to: cleaning
+    actions:
+      - action: notify.whatsapp
+        data:
+          target: !secret whatsapp_group
+          message: "Vacuum: started cleaning"
+      # On big cleans it docks halfway to recharge, with a low battery. Only a
+      # dock with more than 20% left means it's done.
+      - repeat:
+          sequence:
+            - wait_for_trigger:
+                - trigger: state
+                  entity_id: vacuum.robot_vacuum
+                  to: docked
+                  not_from:
+                    - unknown
+                    - unavailable
+              timeout: "08:00:00"
+              continue_on_timeout: false
+          until: "{{ states('sensor.robot_vacuum_battery') | int(0) > 20 }}"
+      - action: notify.whatsapp
+        data:
+          target: !secret whatsapp_group
+          message: "Vacuum: finished"
+
+  - id: vacuum_notify_stuck
+    alias: Vacuum - notify stuck
+    description: Send a WhatsApp message when the vacuum stops with an error, or is left off the dock.
+    triggers:
+      - trigger: state
+        id: error
+        entity_id: vacuum.robot_vacuum
+        to: error
+        not_from:
+          - unknown
+          - unavailable
+      - trigger: state
+        id: off_dock
+        entity_id: vacuum.robot_vacuum
+        to:
+          - idle
+          - paused
+        for: "00:30:00"
+    actions:
+      - action: notify.whatsapp
+        data:
+          target: !secret whatsapp_group
+          # The integration only gives the error as a number, so check the app.
+          message: >-
+            {{ 'Vacuum: stuck, check the Xiaomi Home app' if trigger.id == 'error'
+              else 'Vacuum: off the dock for 30 minutes' }}
+
   - id: vacuum_consumable_low
     alias: Vacuum - consumable running low
-    description: Notify when a brush or the filter has less than 10 hours of life left.
-    # The trigger id is the part's name, used in the message.
+    description: Send a WhatsApp message when a brush or the filter is under 10% life.
+    # The sensors are hours left, so 10% of each part's life: 300 h main brush,
+    # 200 h side brush, 150 h filter. Fires again after you reset it.
     triggers:
       - trigger: numeric_state
         id: Main brush
         entity_id: sensor.robot_vacuum_main_brush_left
-        below: 10
+        below: 30
       - trigger: numeric_state
         id: Side brush
         entity_id: sensor.robot_vacuum_side_brush_left
-        below: 10
+        below: 20
       - trigger: numeric_state
         id: Filter
         entity_id: sensor.robot_vacuum_filter_left
-        below: 10
+        below: 15
     actions:
-      - action: persistent_notification.create
+      - action: notify.whatsapp
         data:
-          notification_id: "{{ trigger.entity_id }}"
-          title: Vacuum maintenance
+          target: !secret whatsapp_group
           message: >-
-            {{ trigger.id }} has {{ trigger.to_state.state }} hours left.
-            Replace or clean it soon, then reset its counter in the Xiaomi Home app.
+            Vacuum: {{ trigger.id | lower }} has {{ trigger.to_state.state }} hours left.
+            Replace or clean it, then reset it in the Xiaomi Home app.

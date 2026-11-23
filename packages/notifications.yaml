@@ -1,5 +1,6 @@
 # WhatsApp notifications to a group, set up as in docs/notifications.md. The
-# group ID is a secret because this repo is public.
+# group ID is a secret because this repo is public. Other packages send their
+# own notifications, e.g. vacuum.yaml.
 
 automation:
   - id: notifications_alarm
